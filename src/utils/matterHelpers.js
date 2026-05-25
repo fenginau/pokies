@@ -114,6 +114,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
 
         ball.labelId = option.id
         ball.optionLabel = option.label
+        ball.optionDisplayLabel = option.displayLabel || option.label
         ballMap.set(option.id, ball)
         return ball
     })
@@ -300,7 +301,7 @@ export function renderBallLabel(machine) {
         context.rotate(ball.angle)
         context.fillStyle =
             drawnIds.has(ball.labelId) || activeDrawId === ball.labelId ? '#152e57' : '#30446c'
-        const truncated = truncateLabel(ball.optionLabel)
+        const truncated = truncateLabel(ball.optionDisplayLabel)
         if (truncated.length > 8) {
             context.font = `${Math.max(8, radius * 0.35)}px "Trebuchet MS", "Avenir Next", sans-serif`
         }

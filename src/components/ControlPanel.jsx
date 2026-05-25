@@ -50,16 +50,16 @@ function ControlPanel({
                     <span>Options</span>
                     <div className='preset-options-list'>
                         {presetOptions.map((option) => {
-                            const isChecked = selectedPresetOptions.indexOf(option) !== -1
+                            const isChecked = selectedPresetOptions.indexOf(option.id) !== -1
                             return (
-                                <label key={option} className='preset-option-item'>
+                                <label key={option.id} className='preset-option-item'>
                                     <input
                                         type='checkbox'
                                         checked={isChecked}
-                                        onChange={() => onPresetOptionToggle(option)}
+                                        onChange={() => onPresetOptionToggle(option.id)}
                                         disabled={isDrawing}
                                     />
-                                    <span>{option}</span>
+                                    <span>{option.label}</span>
                                 </label>
                             )
                         })}

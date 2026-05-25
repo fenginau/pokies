@@ -5,22 +5,57 @@ import { clampDrawCount, parseOptions } from './utils/draw';
 
 const PRESETS = {
   iceCream: [
-    'Vanilla Bean',
-    'Chocolate Fudge',
-    'Salted Caramel',
-    'Strawberry Swirl',
-    'Mint Choc Chip',
-    'Honeycomb Crunch',
-    'Cookies and Cream',
-    'Coffee Ripple',
+    { id: 'banana', label: 'Banana' },
+    { id: 'blueberry', label: 'Blueberry' },
+    { id: 'caramel', label: 'Caramel' },
+    { id: 'chocolate', label: 'Chocolate' },
+    { id: 'coffee', label: 'Coffee' },
+    { id: 'coconut', label: 'Coconut' },
+    { id: 'cookies-cream', label: 'Cookies & Cream' },
+    { id: 'durian', label: 'Durian' },
+    { id: 'mango', label: 'Mango' },
+    { id: 'milo', label: 'Milo' },
+    { id: 'mint', label: 'Mint' },
+    { id: 'matcha', label: 'Matcha' },
+    { id: 'pistachio', label: 'Pistachio' },
+    { id: 'rum-raisin', label: 'Rum Raisin' },
+    { id: 'strawberry', label: 'Strawberry' },
+    { id: 'taro', label: 'Taro' },
+    { id: 'vanilla', label: 'Vanilla' },
   ],
-  initials: ['GF', 'JB', 'AP', 'JH', 'SN', 'MI', 'HK', 'MM', 'SG', 'SW', 'DZ'],
+  initials: [
+    { id: 'AP', label: 'Asher Pakula', displayLabel: 'AP' },
+    { id: 'DZ', label: 'Daniel Zelenko', displayLabel: 'DZ' },
+    { id: 'GF', label: 'Guoxiao Feng', displayLabel: 'GF' },
+    { id: 'HK', label: 'Henry Kerr', displayLabel: 'HK' },
+    { id: 'JH', label: 'Jay Hamilton', displayLabel: 'JH' },
+    { id: 'JB', label: 'Josh Boul', displayLabel: 'JB' },
+    { id: 'MM', label: 'Mayank Mongia', displayLabel: 'MM' },
+    { id: 'MI', label: 'Moin Iqbal', displayLabel: 'MI' },
+    { id: 'SG', label: 'Shelly Giddens', displayLabel: 'SG' },
+    { id: 'SN', label: 'Steven Nocker', displayLabel: 'SN' },
+    { id: 'SW', label: 'Steve Whatman', displayLabel: 'SW' },
+  ],
 };
+
+function getPresetOptionIds(presetOptions) {
+  return presetOptions.map((option) => option.id);
+}
+
+function getPresetOptionMap(presetOptions) {
+  const optionMap = {};
+  presetOptions.forEach((option) => {
+    optionMap[option.id] = option;
+  });
+  return optionMap;
+}
 
 function App() {
   const [presetKey, setPresetKey] = useState('iceCream');
-  const [optionsText, setOptionsText] = useState(PRESETS.iceCream.join('\n'));
-  const [selectedPresetOptions, setSelectedPresetOptions] = useState(PRESETS.iceCream);
+  const [optionsText, setOptionsText] = useState(PRESETS.iceCream.map((option) => option.label).join('\n'));
+  const [selectedPresetOptions, setSelectedPresetOptions] = useState(
+    getPresetOptionIds(PRESETS.iceCream),
+  );
   const [drawCount, setDrawCount] = useState(3);
   const [status, setStatus] = useState('Ready');
   const [results, setResults] = useState([]);
@@ -30,7 +65,22 @@ function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
 
-  const parsedOptions = useMemo(() => parseOptions(optionsText), [optionsText]);
+  const presetOptions = PRESETS[presetKey] || [];
+  const presetOptionMap = useMemo(() => getPresetOptionMap(presetOptions), [presetOptions]);
+  const parsedOptions = useMemo(() => {
+    if (presetKey === 'custom') {
+      return parseOptions(optionsText);
+    }
+
+    return selectedPresetOptions
+      .map((optionId) => presetOptionMap[optionId])
+      .filter(Boolean)
+      .map((option, index) => ({
+        id: `${option.id}-${index}`,
+        label: option.label,
+        displayLabel: option.displayLabel || option.label,
+      }));
+  }, [optionsText, presetKey, presetOptionMap, selectedPresetOptions]);
   const optionCount = parsedOptions.length;
   const safeDrawCount = clampDrawCount(drawCount, optionCount);
 
@@ -69,22 +119,30 @@ function App() {
     setPresetKey(nextPresetKey);
     if (nextPresetKey !== 'custom') {
       const nextPresetOptions = PRESETS[nextPresetKey];
-      const presetText = nextPresetOptions.join('\n');
-      setSelectedPresetOptions(nextPresetOptions);
+      const nextSelectedIds = getPresetOptionIds(nextPresetOptions);
+      const presetText = nextPresetOptions.map((option) => option.label).join('\n');
+      setSelectedPresetOptions(nextSelectedIds);
       setOptionsText(presetText);
       setDrawCount((current) => clampDrawCount(current, nextPresetOptions.length));
     }
   };
 
-  const handlePresetOptionToggle = (option) => {
+  const handlePresetOptionToggle = (optionId) => {
     setSelectedPresetOptions((current) => {
-      const nextSelection = current.indexOf(option) !== -1
-        ? current.filter((item) => item !== option)
-        : [...current, option].sort(
-            (a, b) => PRESETS[presetKey].indexOf(a) - PRESETS[presetKey].indexOf(b),
+      const nextSelection = current.indexOf(optionId) !== -1
+        ? current.filter((item) => item !== optionId)
+        : getPresetOptionIds(presetOptions).filter(
+            (presetOptionId) =>
+              presetOptionId === optionId || current.indexOf(presetOptionId) !== -1,
           );
 
-      setOptionsText(nextSelection.join('\n'));
+      setOptionsText(
+        nextSelection
+          .map((selectedId) => presetOptionMap[selectedId])
+          .filter(Boolean)
+          .map((option) => option.label)
+          .join('\n'),
+      );
       setDrawCount((drawValue) => clampDrawCount(drawValue, nextSelection.length));
       return nextSelection;
     });
@@ -133,7 +191,7 @@ function App() {
         <ControlPanel
           presetKey={presetKey}
           optionsText={optionsText}
-          presetOptions={PRESETS[presetKey] || []}
+          presetOptions={presetOptions}
           selectedPresetOptions={selectedPresetOptions}
           drawCount={drawCount}
           maxDrawCount={optionCount}
