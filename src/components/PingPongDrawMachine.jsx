@@ -40,11 +40,11 @@ function PingPongDrawMachine({
     };
 
     updateSize();
-    resizeObserverRef.current = new ResizeObserver(updateSize);
-    resizeObserverRef.current.observe(containerRef.current);
+    resizeObserverRef.current = updateSize;
+    window.addEventListener('resize', updateSize);
 
     return () => {
-      resizeObserverRef.current?.disconnect();
+      window.removeEventListener('resize', updateSize);
       resizeObserverRef.current = null;
     };
   }, []);

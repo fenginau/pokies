@@ -279,7 +279,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
 }
 
 export function renderBallLabel(machine) {
-    if (!machine?.render?.context) {
+    if (!machine || !machine.render || !machine.render.context) {
         return
     }
 

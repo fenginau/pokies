@@ -78,7 +78,7 @@ function App() {
 
   const handlePresetOptionToggle = (option) => {
     setSelectedPresetOptions((current) => {
-      const nextSelection = current.includes(option)
+      const nextSelection = current.indexOf(option) !== -1
         ? current.filter((item) => item !== option)
         : [...current, option].sort(
             (a, b) => PRESETS[presetKey].indexOf(a) - PRESETS[presetKey].indexOf(b),

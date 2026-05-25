@@ -50,7 +50,7 @@ function ControlPanel({
                     <span>Options</span>
                     <div className='preset-options-list'>
                         {presetOptions.map((option) => {
-                            const isChecked = selectedPresetOptions.includes(option)
+                            const isChecked = selectedPresetOptions.indexOf(option) !== -1
                             return (
                                 <label key={option} className='preset-option-item'>
                                     <input
