@@ -1,13 +1,35 @@
+function slugifyLabel(label) {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'option';
+}
+
+export function createMachineOption(option, index) {
+  const displayLabel = option.displayLabel || option.label;
+  const idBase = option.id || slugifyLabel(option.label);
+
+  return {
+    id: `${idBase}-${index}`,
+    label: option.label,
+    displayLabel,
+  };
+}
+
 export function parseOptions(input) {
   return input
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((label, index) => ({
-      id: `${label}-${index}`,
-      label,
-      displayLabel: label,
-    }));
+    .map((label, index) =>
+      createMachineOption(
+        {
+          label,
+          displayLabel: label,
+        },
+        index,
+      ),
+    );
 }
 
 export function clampDrawCount(drawCount, optionCount) {

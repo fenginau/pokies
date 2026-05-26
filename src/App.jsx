@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import ControlPanel from './components/ControlPanel'
 import PingPongDrawMachine from './components/PingPongDrawMachine'
-import { clampDrawCount, parseOptions } from './utils/draw'
+import { clampDrawCount, createMachineOption, parseOptions } from './utils/draw'
 
 const PRESETS = {
     iceCream: [
@@ -37,6 +37,7 @@ const PRESETS = {
         { id: 'SW', label: 'Steve Whatman', displayLabel: 'SW' }
     ]
 }
+const EMPTY_PRESET_OPTIONS = []
 
 function getPresetOptionIds(presetOptions) {
     return presetOptions.map((option) => option.id)
@@ -67,7 +68,7 @@ function App() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false)
 
-    const presetOptions = PRESETS[presetKey] || []
+    const presetOptions = PRESETS[presetKey] || EMPTY_PRESET_OPTIONS
     const presetOptionMap = useMemo(() => getPresetOptionMap(presetOptions), [presetOptions])
     const parsedOptions = useMemo(() => {
         if (presetKey === 'custom') {
@@ -77,11 +78,7 @@ function App() {
         return selectedPresetOptions
             .map((optionId) => presetOptionMap[optionId])
             .filter(Boolean)
-            .map((option, index) => ({
-                id: `${option.id}-${index}`,
-                label: option.label,
-                displayLabel: option.displayLabel || option.label
-            }))
+            .map((option, index) => createMachineOption(option, index))
     }, [optionsText, presetKey, presetOptionMap, selectedPresetOptions])
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
