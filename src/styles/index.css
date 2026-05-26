@@ -493,7 +493,7 @@ input {
 
 .attack-game-center-panel h2,
 .attack-game-stage-intro {
-    font-size: clamp(2.6rem, 6vw, 5rem);
+    font-size: 3rem;
     margin: 0 0 18px;
 }
 
@@ -536,8 +536,8 @@ input {
     position: absolute;
     left: 46%;
     bottom: 0;
-    width: min(360px, 10vw);
-    height: min(320px, 9vh);
+    width: 180px;
+    height: 72px;
     overflow: visible;
     pointer-events: none;
     z-index: 3;
@@ -649,12 +649,30 @@ input {
     inset: 0;
     display: grid;
     place-items: center;
-    font-size: clamp(3.8rem, 12vw, 8rem);
+    font-size: 4rem;
     font-weight: 800;
     color: #ffffff;
     text-shadow:
         0 4px 18px rgba(3, 11, 26, 0.82),
         0 0 18px rgba(255, 80, 80, 0.52);
+}
+
+@supports (font-size: clamp(1rem, 2vw, 3rem)) {
+    .attack-game-center-panel h2,
+    .attack-game-stage-intro {
+        font-size: clamp(2.6rem, 6vw, 5rem);
+    }
+
+    .attack-game-boss-count {
+        font-size: clamp(3.8rem, 12vw, 8rem);
+    }
+}
+
+@supports (width: min(10px, 20px)) {
+    .attack-game-gun-wrap {
+        width: min(360px, 10vw);
+        height: min(320px, 9vh);
+    }
 }
 
 .attack-game-enemy-avatar {
