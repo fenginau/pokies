@@ -24,17 +24,17 @@ const PRESETS = {
         { id: 'vanilla', label: 'Vanilla' }
     ],
     initials: [
-        { id: 'AP', label: 'Asher Pakula', displayLabel: 'AP' },
-        { id: 'DZ', label: 'Daniel Zelenko', displayLabel: 'DZ' },
-        { id: 'GF', label: 'Guoxiao Feng', displayLabel: 'GF' },
-        { id: 'HK', label: 'Henry Kerr', displayLabel: 'HK' },
-        { id: 'JH', label: 'Jay Hamilton', displayLabel: 'JH' },
-        { id: 'JB', label: 'Josh Boul', displayLabel: 'JB' },
-        { id: 'MM', label: 'Mayank Mongia', displayLabel: 'MM' },
-        { id: 'MI', label: 'Moin Iqbal', displayLabel: 'MI' },
-        { id: 'SG', label: 'Shelly Giddens', displayLabel: 'SG' },
-        { id: 'SN', label: 'Steven Nocker', displayLabel: 'SN' },
-        { id: 'SW', label: 'Steve Whatman', displayLabel: 'SW' }
+        { id: 'AP', label: 'Asher Pakula', displayLabel: 'AP', avatarSrc: '/avatars/AP.png' },
+        { id: 'DZ', label: 'Daniel Zelenko', displayLabel: 'DZ', avatarSrc: '/avatars/DZ.png' },
+        { id: 'GF', label: 'Guoxiao Feng', displayLabel: 'GF', avatarSrc: '/avatars/GF.png' },
+        { id: 'HK', label: 'Henry Kerr', displayLabel: 'HK', avatarSrc: '/avatars/HK.png' },
+        { id: 'JH', label: 'Jay Hamilton', displayLabel: 'JH', avatarSrc: '/avatars/JH.png' },
+        { id: 'JB', label: 'Josh Boul', displayLabel: 'JB', avatarSrc: '/avatars/JB.png' },
+        { id: 'MM', label: 'Mayank Mongia', displayLabel: 'MM', avatarSrc: '/avatars/MM.png' },
+        { id: 'MI', label: 'Moin Iqbal', displayLabel: 'MI', avatarSrc: '/avatars/MI.png' },
+        { id: 'SG', label: 'Shelly Giddens', displayLabel: 'SG', avatarSrc: '/avatars/SG.png' },
+        { id: 'SN', label: 'Steven Nocker', displayLabel: 'SN', avatarSrc: '/avatars/SN.png' },
+        { id: 'SW', label: 'Steve Whatman', displayLabel: 'SW', avatarSrc: '/avatars/SW.png' }
     ]
 }
 const EMPTY_PRESET_OPTIONS = []
@@ -52,12 +52,12 @@ function getPresetOptionMap(presetOptions) {
 }
 
 function App() {
-    const [presetKey, setPresetKey] = useState('iceCream')
+    const [presetKey, setPresetKey] = useState('initials')
     const [optionsText, setOptionsText] = useState(
-        PRESETS.iceCream.map((option) => option.label).join('\n')
+        PRESETS.initials.map((option) => option.label).join('\n')
     )
     const [selectedPresetOptions, setSelectedPresetOptions] = useState(
-        getPresetOptionIds(PRESETS.iceCream)
+        getPresetOptionIds(PRESETS.initials)
     )
     const [drawCount, setDrawCount] = useState(3)
     const [status, setStatus] = useState('Ready')

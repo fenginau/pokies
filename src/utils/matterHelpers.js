@@ -108,6 +108,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
         ball.labelId = option.id
         ball.optionLabel = option.label
         ball.optionDisplayLabel = option.displayLabel || option.label
+        ball.avatarSrc = option.avatarSrc || null
         ballMap.set(option.id, ball)
         return ball
     })
@@ -124,6 +125,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
     ])
 
     const state = {
+        avatarCache: new Map(),
         ballMap,
         balls,
         drawnIds: new Set(),
@@ -302,18 +304,65 @@ export function renderBallLabel(machine) {
         context.save()
         context.translate(ball.position.x, ball.position.y)
         context.rotate(ball.angle)
-        context.fillStyle =
-            drawnIds.has(ball.labelId) || activeDrawId === ball.labelId ? '#152e57' : '#30446c'
-        const truncated = truncateLabel(ball.optionDisplayLabel)
-        if (truncated.length > 8) {
-            context.font = `${Math.max(8, radius * 0.35)}px "Trebuchet MS", "Avenir Next", sans-serif`
+        if (!drawBallAvatar(context, machine.state.avatarCache, ball, radius)) {
+            context.fillStyle =
+                drawnIds.has(ball.labelId) || activeDrawId === ball.labelId ? '#152e57' : '#30446c'
+            const truncated = truncateLabel(ball.optionDisplayLabel)
+            if (truncated.length > 8) {
+                context.font = `${Math.max(8, radius * 0.35)}px "Trebuchet MS", "Avenir Next", sans-serif`
+            }
+            context.fillText(truncated, 0, 0, radius * 1.58)
         }
-        context.fillText(truncated, 0, 0, radius * 1.58)
         context.restore()
         context.font = `${Math.max(10, radius * 0.46)}px "Trebuchet MS", "Avenir Next", sans-serif`
     })
 
     context.restore()
+}
+
+function drawBallAvatar(context, avatarCache, ball, radius) {
+    if (!ball.avatarSrc) {
+        return false
+    }
+
+    const avatarState = getAvatarState(avatarCache, ball.avatarSrc)
+    if (avatarState.status !== 'loaded') {
+        return false
+    }
+
+    context.save()
+    context.beginPath()
+    context.arc(0, 0, radius - 2, 0, Math.PI * 2)
+    context.closePath()
+    context.clip()
+
+    const size = (radius - 2) * 2
+    context.drawImage(avatarState.image, -size / 2, -size / 2, size, size)
+    context.restore()
+    return true
+}
+
+function getAvatarState(avatarCache, avatarSrc) {
+    const cached = avatarCache.get(avatarSrc)
+    if (cached) {
+        return cached
+    }
+
+    const image = new Image()
+    const state = {
+        image,
+        status: 'loading'
+    }
+
+    image.onload = () => {
+        state.status = 'loaded'
+    }
+    image.onerror = () => {
+        state.status = 'error'
+    }
+    image.src = avatarSrc
+    avatarCache.set(avatarSrc, state)
+    return state
 }
 
 function drawMachineShell(machine) {

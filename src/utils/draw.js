@@ -11,6 +11,7 @@ export function createMachineOption(option, index) {
 
   return {
     id: `${idBase}-${index}`,
+    avatarSrc: option.avatarSrc || null,
     label: option.label,
     displayLabel,
   };
