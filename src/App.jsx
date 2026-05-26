@@ -861,7 +861,7 @@ function App() {
 
     const handleDropResultBall = (result, resultKey) => {
         if (isAttackOnAvatarEnabled) {
-            setActiveAttackGameTarget(result)
+            setActiveAttackGameTarget({ target: result, testMode: false })
             return
         }
 
@@ -898,7 +898,7 @@ function App() {
 
     const handleControlsTitleClick = () => {
         if (fellowIdMap.MM) {
-            setActiveAttackGameTarget(fellowIdMap.MM)
+            setActiveAttackGameTarget({ target: fellowIdMap.MM, testMode: true })
         }
     }
 
@@ -1161,7 +1161,8 @@ function App() {
             ) : null}
             {activeAttackGameTarget ? (
                 <AttackOnAvatarGameModal
-                    target={activeAttackGameTarget}
+                    target={activeAttackGameTarget.target}
+                    testMode={activeAttackGameTarget.testMode}
                     onClose={() => setActiveAttackGameTarget(null)}
                 />
             ) : null}

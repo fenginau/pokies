@@ -5,6 +5,10 @@ const STAGE_CLEAR_COUNT = 15
 const STAGE_INTRO_MS = 2000
 const ENEMY_BASE_SIZE = 136
 const SHOT_TRAVEL_MS = 260
+const BOSS_GROW_MS = 5000
+const BOSS_SHRINK_MS = 1500
+const BOSS_REGROW_MS = 3500
+const BOSS_CYCLE_MS = BOSS_SHRINK_MS + BOSS_REGROW_MS
 const GUN_WRAP_LEFT_PERCENT = 46
 const GUN_WRAP_WIDTH = 360
 const GUN_WRAP_WIDTH_RATIO = 0.42
@@ -119,7 +123,7 @@ function getEnemyPose(enemy, now, viewport) {
     }
 }
 
-function AttackOnAvatarGameModal({ target, onClose }) {
+function AttackOnAvatarGameModal({ target, onClose, testMode = false }) {
     const [status, setStatus] = useState('intro')
     const [stage, setStage] = useState(1)
     const [health, setHealth] = useState(MAX_HEALTH)
@@ -133,6 +137,7 @@ function AttackOnAvatarGameModal({ target, onClose }) {
     })
     const [hitFlashKey, setHitFlashKey] = useState(0)
     const [activeProjectile, setActiveProjectile] = useState(null)
+    const [bossState, setBossState] = useState(null)
 
     const timersRef = useRef(new Set())
     const animationFrameRef = useRef(0)
@@ -147,6 +152,7 @@ function AttackOnAvatarGameModal({ target, onClose }) {
     const spawnTargetRef = useRef(randomInt(1, 3))
     const projectileTimeoutRef = useRef(0)
     const audioRef = useRef(null)
+    const bossStateRef = useRef(bossState)
 
     useEffect(() => {
         stageRef.current = stage
@@ -175,6 +181,10 @@ function AttackOnAvatarGameModal({ target, onClose }) {
     useEffect(() => {
         viewportRef.current = viewport
     }, [viewport])
+
+    useEffect(() => {
+        bossStateRef.current = bossState
+    }, [bossState])
 
     useEffect(() => {
         const handleResize = () => {
@@ -253,6 +263,7 @@ function AttackOnAvatarGameModal({ target, onClose }) {
         spawnTargetRef.current = getConcurrentTarget(nextStage, 0)
         setEnemies([])
         setActiveProjectile(null)
+        setBossState(null)
         setStatus('stageIntro')
         statusRef.current = 'stageIntro'
 
@@ -268,6 +279,30 @@ function AttackOnAvatarGameModal({ target, onClose }) {
         setActiveProjectile(null)
         setStatus('gameOver')
         statusRef.current = 'gameOver'
+    }
+
+    const beginBossFight = (bossStage) => {
+        cancelAnimationFrame(animationFrameRef.current)
+        const hp = bossStage === 1 ? 25 : 40
+        const now = performance.now()
+        const nextBossState = {
+            stage: bossStage,
+            hp,
+            maxHp: hp,
+            spawnTime: now,
+            cycleStartTime: now,
+            cycleIndex: 0,
+            hasAttackedThisCycle: false,
+            isFrozen: false,
+            x: viewportRef.current.width / 2,
+            y: viewportRef.current.height / 2
+        }
+        setEnemies([])
+        setActiveProjectile(null)
+        setBossState(nextBossState)
+        bossStateRef.current = nextBossState
+        setStatus('boss')
+        statusRef.current = 'boss'
     }
 
     const runFrame = (now) => {
@@ -298,14 +333,16 @@ function AttackOnAvatarGameModal({ target, onClose }) {
             })
 
         if (hitCount > 0) {
-            const nextHealth = Math.max(0, healthRef.current - hitCount)
-            healthRef.current = nextHealth
-            setHealth(nextHealth)
             triggerHitFlash()
+            if (!testMode) {
+                const nextHealth = Math.max(0, healthRef.current - hitCount)
+                healthRef.current = nextHealth
+                setHealth(nextHealth)
 
-            if (nextHealth <= 0) {
-                finishGame()
-                return
+                if (nextHealth <= 0) {
+                    finishGame()
+                    return
+                }
             }
         }
 
@@ -333,12 +370,12 @@ function AttackOnAvatarGameModal({ target, onClose }) {
     }
 
     useEffect(() => {
-        if (status !== 'playing') {
+        if (status !== 'playing' && status !== 'boss') {
             cancelAnimationFrame(animationFrameRef.current)
             return undefined
         }
 
-        animationFrameRef.current = window.requestAnimationFrame(runFrame)
+        animationFrameRef.current = window.requestAnimationFrame(gameFrame)
         return () => {
             cancelAnimationFrame(animationFrameRef.current)
         }
@@ -390,12 +427,15 @@ function AttackOnAvatarGameModal({ target, onClose }) {
         setEnemies(frozenEnemies)
 
         const muzzle = getGunMuzzlePosition()
+        const angle =
+            (Math.atan2(targetEnemy.y - muzzle.y, targetEnemy.x - muzzle.x) * 180) / Math.PI
         setActiveProjectile({
             id: `${enemyId}-${Date.now()}`,
             startX: muzzle.x,
             startY: muzzle.y,
             endX: targetEnemy.x,
-            endY: targetEnemy.y
+            endY: targetEnemy.y,
+            angle
         })
 
         window.clearTimeout(projectileTimeoutRef.current)
@@ -413,7 +453,7 @@ function AttackOnAvatarGameModal({ target, onClose }) {
             const nextStageDestroyed = stageDestroyedRef.current + 1
 
             if (currentStage < 3 && nextStageDestroyed >= STAGE_CLEAR_COUNT) {
-                beginStageIntro(currentStage + 1, nextScore)
+                beginBossFight(currentStage)
                 return
             }
 
@@ -428,6 +468,165 @@ function AttackOnAvatarGameModal({ target, onClose }) {
                 spawnTargetRef.current = getConcurrentTarget(3, nextStageDestroyed)
             }
         }, SHOT_TRAVEL_MS)
+    }
+
+    const getBossPose = (now) => {
+        const boss = bossStateRef.current
+        if (!boss) {
+            return null
+        }
+
+        const maxSize = Math.min(viewportRef.current.width, viewportRef.current.height) * 0.8
+        let scale = 0.2
+        if (boss.cycleIndex === 0) {
+            const progress = clamp((now - boss.spawnTime) / BOSS_GROW_MS, 0, 1)
+            scale = 0.2 + progress * 0.8
+        } else {
+            const cycleElapsed = now - boss.cycleStartTime
+            if (cycleElapsed <= BOSS_SHRINK_MS) {
+                const shrinkProgress = clamp(cycleElapsed / BOSS_SHRINK_MS, 0, 1)
+                scale = 1 - shrinkProgress * 0.5
+            } else {
+                const regrowProgress = clamp(
+                    (cycleElapsed - BOSS_SHRINK_MS) / BOSS_REGROW_MS,
+                    0,
+                    1
+                )
+                scale = 0.5 + regrowProgress * 0.5
+            }
+        }
+
+        return {
+            size: maxSize * scale,
+            scale
+        }
+    }
+
+    const handleBossAttack = (now) => {
+        triggerHitFlash()
+        if (!testMode) {
+            const nextHealth = Math.max(0, healthRef.current - 1)
+            healthRef.current = nextHealth
+            setHealth(nextHealth)
+            if (nextHealth <= 0) {
+                finishGame()
+                return false
+            }
+        }
+
+        const currentBoss = bossStateRef.current
+        if (!currentBoss) {
+            return false
+        }
+
+        const updatedBoss = {
+            ...currentBoss,
+            cycleIndex: currentBoss.cycleIndex + 1,
+            cycleStartTime: now,
+            hasAttackedThisCycle: false,
+            isFrozen: false
+        }
+        bossStateRef.current = updatedBoss
+        setBossState(updatedBoss)
+        return true
+    }
+
+    const handleBossHit = () => {
+        if (statusRef.current !== 'boss' || activeProjectile) {
+            return
+        }
+
+        const currentBoss = bossStateRef.current
+        if (!currentBoss || currentBoss.isFrozen) {
+            return
+        }
+
+        const muzzle = getGunMuzzlePosition()
+        const angle =
+            (Math.atan2(currentBoss.y - muzzle.y, currentBoss.x - muzzle.x) * 180) / Math.PI
+        setActiveProjectile({
+            id: `boss-${Date.now()}`,
+            startX: muzzle.x,
+            startY: muzzle.y,
+            endX: currentBoss.x,
+            endY: currentBoss.y,
+            angle
+        })
+
+        const frozenBoss = { ...currentBoss, isFrozen: true }
+        bossStateRef.current = frozenBoss
+        setBossState(frozenBoss)
+
+        window.clearTimeout(projectileTimeoutRef.current)
+        projectileTimeoutRef.current = window.setTimeout(() => {
+            setActiveProjectile(null)
+            const boss = bossStateRef.current
+            if (!boss) {
+                return
+            }
+
+            const nextHp = boss.hp - 1
+            const nextScore = scoreRef.current + 1
+            scoreRef.current = nextScore
+            setScore(nextScore)
+
+            if (nextHp <= 0) {
+                setBossState(null)
+                bossStateRef.current = null
+                if (boss.stage === 1) {
+                    beginStageIntro(2, nextScore)
+                } else {
+                    beginStageIntro(3, nextScore)
+                }
+                return
+            }
+
+            const updatedBoss = { ...boss, hp: nextHp, isFrozen: false }
+            bossStateRef.current = updatedBoss
+            setBossState(updatedBoss)
+        }, SHOT_TRAVEL_MS)
+    }
+
+    const gameFrame = (now) => {
+        if (statusRef.current === 'boss') {
+            const boss = bossStateRef.current
+            if (!boss) {
+                return
+            }
+
+            const pose = getBossPose(now)
+            if (!pose) {
+                return
+            }
+
+            const cycleStart = boss.cycleIndex === 0 ? boss.spawnTime : boss.cycleStartTime
+            const cycleElapsed = now - cycleStart
+            const attackThreshold = boss.cycleIndex === 0 ? BOSS_GROW_MS : BOSS_CYCLE_MS
+            if (cycleElapsed >= attackThreshold && !boss.hasAttackedThisCycle && !boss.isFrozen) {
+                const updatedBoss = { ...boss, hasAttackedThisCycle: true }
+                bossStateRef.current = updatedBoss
+                setBossState(updatedBoss)
+                const didSurvive = handleBossAttack(now)
+                if (!didSurvive) {
+                    return
+                }
+            } else {
+                setBossState((current) =>
+                    current
+                        ? {
+                              ...current,
+                              size: pose.size,
+                              scale: pose.scale
+                          }
+                        : current
+                )
+            }
+
+            animationFrameRef.current = window.requestAnimationFrame(gameFrame)
+            return
+        }
+
+        runFrame(now)
     }
 
     const hearts = Array.from({ length: MAX_HEALTH }, (_, index) => index < health)
@@ -448,7 +647,8 @@ function AttackOnAvatarGameModal({ target, onClose }) {
                         '--attack-shot-start-x': `${activeProjectile.startX}px`,
                         '--attack-shot-start-y': `${activeProjectile.startY}px`,
                         '--attack-shot-end-x': `${activeProjectile.endX}px`,
-                        '--attack-shot-end-y': `${activeProjectile.endY}px`
+                        '--attack-shot-end-y': `${activeProjectile.endY}px`,
+                        '--attack-shot-angle': `${activeProjectile.angle}deg`
                     }}
                     aria-hidden='true'
                 />
@@ -464,11 +664,12 @@ function AttackOnAvatarGameModal({ target, onClose }) {
                 ))}
             </div>
 
-            {(status === 'playing' || status === 'stageIntro' || status === 'gameOver') ? (
+            {(status === 'playing' || status === 'stageIntro' || status === 'gameOver' || status === 'boss') ? (
                 <div className='attack-game-hud'>
                     <div>Stage {stage}</div>
                     <div>Destroyed {stageDestroyed}</div>
                     <div>Score {score}</div>
+                    {testMode ? <div>TEST MODE</div> : null}
                 </div>
             ) : null}
 
@@ -483,6 +684,41 @@ function AttackOnAvatarGameModal({ target, onClose }) {
 
             {status === 'stageIntro' ? (
                 <div className='attack-game-stage-intro'>{stageIntroLabel}</div>
+            ) : null}
+
+            {status === 'boss' && bossState ? (
+                <button
+                    type='button'
+                    className='attack-game-boss'
+                    onClick={handleBossHit}
+                    style={{
+                        width: `${bossState.size || Math.min(viewport.width, viewport.height) * 0.8}px`,
+                        height: `${bossState.size || Math.min(viewport.width, viewport.height) * 0.8}px`,
+                        left: `${bossState.x}px`,
+                        top: `${bossState.y}px`,
+                        transform: 'translate(-50%, -50%)'
+                    }}
+                    aria-label={`Attack boss ${target.label}`}>
+                    <span className='attack-game-boss-shell'>
+                        {target.avatarSrc ? (
+                            <img
+                                src={target.avatarSrc}
+                                alt={target.label}
+                                className='attack-game-boss-avatar'
+                                onError={(event) => {
+                                    event.currentTarget.onerror = null
+                                    event.currentTarget.src =
+                                        target.avatarFallbackSrc || '/avatars/unknown.png'
+                                }}
+                            />
+                        ) : (
+                            <span className='attack-game-enemy-text'>
+                                {target.displayLabel || target.id}
+                            </span>
+                        )}
+                        <span className='attack-game-boss-count'>{bossState.hp}</span>
+                    </span>
+                </button>
             ) : null}
 
             {status === 'playing'
