@@ -3,6 +3,8 @@ import ControlPanel from './components/ControlPanel'
 import PingPongDrawMachine from './components/PingPongDrawMachine'
 import { clampDrawCount, createMachineOption, parseOptions } from './utils/draw'
 
+const DEFAULT_FELLOW_AVATAR_SRC = '/avatars/unknown.png'
+
 const PRESETS = {
     iceCream: [
         { id: 'banana', label: 'Banana' },
@@ -24,17 +26,83 @@ const PRESETS = {
         { id: 'vanilla', label: 'Vanilla' }
     ],
     initials: [
-        { id: 'AP', label: 'Asher Pakula', displayLabel: 'AP', avatarSrc: '/avatars/AP.png' },
-        { id: 'DZ', label: 'Daniel Zelenko', displayLabel: 'DZ', avatarSrc: '/avatars/DZ.png' },
-        { id: 'GF', label: 'Guoxiao Feng', displayLabel: 'GF', avatarSrc: '/avatars/GF.png' },
-        { id: 'HK', label: 'Henry Kerr', displayLabel: 'HK', avatarSrc: '/avatars/HK.png' },
-        { id: 'JH', label: 'Jay Hamilton', displayLabel: 'JH', avatarSrc: '/avatars/JH.png' },
-        { id: 'JB', label: 'Josh Boul', displayLabel: 'JB', avatarSrc: '/avatars/JB.png' },
-        { id: 'MM', label: 'Mayank Mongia', displayLabel: 'MM', avatarSrc: '/avatars/MM.png' },
-        { id: 'MI', label: 'Moin Iqbal', displayLabel: 'MI', avatarSrc: '/avatars/MI.png' },
-        { id: 'SG', label: 'Shelly Giddens', displayLabel: 'SG', avatarSrc: '/avatars/SG.png' },
-        { id: 'SN', label: 'Steven Nocker', displayLabel: 'SN', avatarSrc: '/avatars/SN.png' },
-        { id: 'SW', label: 'Steve Whatman', displayLabel: 'SW', avatarSrc: '/avatars/SW.png' }
+        {
+            id: 'AP',
+            label: 'Asher Pakula',
+            displayLabel: 'AP',
+            avatarSrc: '/avatars/AP.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'DZ',
+            label: 'Daniel Zelenko',
+            displayLabel: 'DZ',
+            avatarSrc: '/avatars/DZ.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'GF',
+            label: 'Guoxiao Feng',
+            displayLabel: 'GF',
+            avatarSrc: '/avatars/GF.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'HK',
+            label: 'Henry Kerr',
+            displayLabel: 'HK',
+            avatarSrc: '/avatars/HK.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'JH',
+            label: 'Jay Hamilton',
+            displayLabel: 'JH',
+            avatarSrc: '/avatars/JH.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'JB',
+            label: 'Josh Boul',
+            displayLabel: 'JB',
+            avatarSrc: '/avatars/JB.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'MM',
+            label: 'Mayank Mongia',
+            displayLabel: 'MM',
+            avatarSrc: '/avatars/MM.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'MI',
+            label: 'Moin Iqbal',
+            displayLabel: 'MI',
+            avatarSrc: '/avatars/MI.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'SG',
+            label: 'Shelly Giddens',
+            displayLabel: 'SG',
+            avatarSrc: '/avatars/SG.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'SN',
+            label: 'Steven Nocker',
+            displayLabel: 'SN',
+            avatarSrc: '/avatars/SN.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        },
+        {
+            id: 'SW',
+            label: 'Steve Whatman',
+            displayLabel: 'SW',
+            avatarSrc: '/avatars/SW.png',
+            avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
+        }
     ]
 }
 const EMPTY_PRESET_OPTIONS = []
@@ -47,6 +115,14 @@ function getPresetOptionMap(presetOptions) {
     const optionMap = {}
     presetOptions.forEach((option) => {
         optionMap[option.id] = option
+    })
+    return optionMap
+}
+
+function getPresetOptionLabelMap(presetOptions) {
+    const optionMap = {}
+    presetOptions.forEach((option) => {
+        optionMap[option.label] = option
     })
     return optionMap
 }
@@ -70,6 +146,7 @@ function App() {
 
     const presetOptions = PRESETS[presetKey] || EMPTY_PRESET_OPTIONS
     const presetOptionMap = useMemo(() => getPresetOptionMap(presetOptions), [presetOptions])
+    const fellowLabelMap = useMemo(() => getPresetOptionLabelMap(PRESETS.initials), [])
     const parsedOptions = useMemo(() => {
         if (presetKey === 'custom') {
             return parseOptions(optionsText)
@@ -80,6 +157,14 @@ function App() {
             .filter(Boolean)
             .map((option, index) => createMachineOption(option, index))
     }, [optionsText, presetKey, presetOptionMap, selectedPresetOptions])
+    const fellowResults = useMemo(
+        () =>
+            results
+                .map((result) => fellowLabelMap[result])
+                .filter(Boolean),
+        [fellowLabelMap, results]
+    )
+    const shouldShowFellowResults = presetKey === 'initials' && fellowResults.length === results.length
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -251,14 +336,44 @@ function App() {
                             </button>
                         </div>
 
-                        <ol className='results-list'>
-                            {results.map((result, index) => (
-                                <li key={`${result}-${index}`} className='result-item'>
-                                    <span className='result-order'>{index + 1}</span>
-                                    <span className='result-value'>{result}</span>
-                                </li>
-                            ))}
-                        </ol>
+                        {shouldShowFellowResults ? (
+                            <ol className='fellow-results-row'>
+                                {fellowResults.map((result, index) => (
+                                    <li key={`${result.id}-${index}`} className='fellow-result-card'>
+                                        <div className='fellow-result-rank'>{index + 1}</div>
+                                        <div className='fellow-result-ball'>
+                                            {result.avatarSrc ? (
+                                                <img
+                                                    src={result.avatarSrc}
+                                                    alt={result.label}
+                                                    className='fellow-result-avatar'
+                                                    onError={(event) => {
+                                                        event.currentTarget.onerror = null
+                                                        event.currentTarget.src =
+                                                            result.avatarFallbackSrc ||
+                                                            DEFAULT_FELLOW_AVATAR_SRC
+                                                    }}
+                                                />
+                                            ) : (
+                                                <span className='fellow-result-initials'>
+                                                    {result.displayLabel || result.id}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className='fellow-result-name'>{result.label}</div>
+                                    </li>
+                                ))}
+                            </ol>
+                        ) : (
+                            <ol className='results-list'>
+                                {results.map((result, index) => (
+                                    <li key={`${result}-${index}`} className='result-item'>
+                                        <span className='result-order'>{index + 1}</span>
+                                        <span className='result-value'>{result}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                        )}
 
                         {!results.length ? (
                             <div className='results-empty'>No balls reached the rail yet.</div>

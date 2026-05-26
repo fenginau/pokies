@@ -107,6 +107,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
 
         ball.labelId = option.id
         ball.optionLabel = option.label
+        ball.avatarFallbackSrc = option.avatarFallbackSrc || null
         ball.optionDisplayLabel = option.displayLabel || option.label
         ball.avatarSrc = option.avatarSrc || null
         ballMap.set(option.id, ball)
@@ -325,7 +326,7 @@ function drawBallAvatar(context, avatarCache, ball, radius) {
         return false
     }
 
-    const avatarState = getAvatarState(avatarCache, ball.avatarSrc)
+    const avatarState = getAvatarState(avatarCache, ball.avatarSrc, ball.avatarFallbackSrc)
     if (avatarState.status !== 'loaded') {
         return false
     }
@@ -342,8 +343,9 @@ function drawBallAvatar(context, avatarCache, ball, radius) {
     return true
 }
 
-function getAvatarState(avatarCache, avatarSrc) {
-    const cached = avatarCache.get(avatarSrc)
+function getAvatarState(avatarCache, avatarSrc, fallbackSrc) {
+    const cacheKey = `${avatarSrc || ''}|${fallbackSrc || ''}`
+    const cached = avatarCache.get(cacheKey)
     if (cached) {
         return cached
     }
@@ -351,17 +353,23 @@ function getAvatarState(avatarCache, avatarSrc) {
     const image = new Image()
     const state = {
         image,
-        status: 'loading'
+        status: 'loading',
+        hasRetriedWithFallback: false
     }
 
     image.onload = () => {
         state.status = 'loaded'
     }
     image.onerror = () => {
+        if (fallbackSrc && !state.hasRetriedWithFallback && image.src !== fallbackSrc) {
+            state.hasRetriedWithFallback = true
+            image.src = fallbackSrc
+            return
+        }
         state.status = 'error'
     }
     image.src = avatarSrc
-    avatarCache.set(avatarSrc, state)
+    avatarCache.set(cacheKey, state)
     return state
 }
 
