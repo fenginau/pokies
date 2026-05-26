@@ -22,6 +22,8 @@ const DROP_HIT_FADE_REMOVE_DELAY_MS = 400
 const DROP_OUT_OF_VIEW_STOP_RATIO = 1 / 5
 const DROP_OUT_OF_VIEW_RESUME_RATIO = 1 / 20
 const DROP_OVERFLOW_CONTROL_MS = 220
+const AVATAR_MOSAIC_BASE_COLUMNS = 32
+const AVATAR_MOSAIC_ROW_DROP_MS = 1000
 const GUN_WIDTH = 240
 const GUN_RIGHT_OFFSET = 88
 const GUN_BOTTOM_OFFSET = 20
@@ -151,6 +153,15 @@ function getPresetOptionLabelMap(presetOptions) {
     return optionMap
 }
 
+function shuffleList(items) {
+    const result = [...items]
+    for (let index = result.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1))
+        ;[result[index], result[swapIndex]] = [result[swapIndex], result[index]]
+    }
+    return result
+}
+
 function App() {
     const [presetKey, setPresetKey] = useState('initials')
     const [optionsText, setOptionsText] = useState(
@@ -167,11 +178,12 @@ function App() {
     const [resetToken, setResetToken] = useState(0)
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false)
-    const [rainEffect, setRainEffect] = useState('none')
+    const [rainEffect, setRainEffect] = useState('avatarMosaicBuild')
     const [droppedBalls, setDroppedBalls] = useState([])
     const [droppedResultReplacements, setDroppedResultReplacements] = useState({})
     const [lastToggledOnFellowId, setLastToggledOnFellowId] = useState('MM')
     const [activeShot, setActiveShot] = useState(null)
+    const [avatarMosaic, setAvatarMosaic] = useState(null)
     const droppedBodiesRef = useRef(new Map())
     const droppedNodesRef = useRef(new Map())
     const droppedBallMetaRef = useRef(new Map())
@@ -182,6 +194,7 @@ function App() {
     const overflowControllerRef = useRef(0)
     const activeShotTimeoutRef = useRef(0)
     const activeRemoveTimeoutRef = useRef(0)
+    const mosaicBuildTokenRef = useRef(0)
     const physicsRef = useRef(null)
     const animationFrameRef = useRef(0)
     const droppedBallIdRef = useRef(0)
@@ -210,6 +223,7 @@ function App() {
     const defaultReplacementFellow = fellowIdMap.MM || PRESETS.initials.find((option) => option.id === 'MM')
     const shouldShowFellowResults = presetKey === 'initials' && fellowResults.length === results.length
     const isGunshotCleanupEnabled = rainEffect === 'gunshotCleanup'
+    const isAvatarMosaicEnabled = rainEffect === 'avatarMosaicBuild'
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -458,6 +472,7 @@ function App() {
         activeShotTimeoutRef.current = 0
         activeRemoveTimeoutRef.current = 0
         setActiveShot(null)
+        setAvatarMosaic(null)
         setDroppedBalls([])
         setDroppedResultReplacements({})
     }
@@ -545,6 +560,115 @@ function App() {
         droppedNodesRef.current.delete(ballId)
         droppedBallMetaRef.current.delete(ballId)
         setDroppedBalls((current) => current.filter((item) => item.id !== ballId))
+    }
+
+    const loadImage = (src, fallbackSrc) =>
+        new Promise((resolve, reject) => {
+            const image = new Image()
+            image.onload = () => resolve(image)
+            image.onerror = () => {
+                if (fallbackSrc && fallbackSrc !== src) {
+                    const fallbackImage = new Image()
+                    fallbackImage.onload = () => resolve(fallbackImage)
+                    fallbackImage.onerror = reject
+                    fallbackImage.src = fallbackSrc
+                    return
+                }
+
+                reject(new Error(`Failed to load image: ${src}`))
+            }
+            image.src = src
+        })
+
+    const buildAvatarMosaic = async (result) => {
+        if (!result.avatarSrc) {
+            return
+        }
+
+        const buildToken = mosaicBuildTokenRef.current + 1
+        mosaicBuildTokenRef.current = buildToken
+
+        try {
+            const image = await loadImage(
+                result.avatarSrc,
+                result.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
+            )
+            if (buildToken !== mosaicBuildTokenRef.current) {
+                return
+            }
+
+            const isLandscape = window.innerWidth >= window.innerHeight
+            const columns = isLandscape
+                ? Math.max(
+                      AVATAR_MOSAIC_BASE_COLUMNS,
+                      Math.round((window.innerWidth / window.innerHeight) * 24)
+                  )
+                : AVATAR_MOSAIC_BASE_COLUMNS
+            const rows = Math.max(
+                18,
+                Math.round((image.naturalHeight / image.naturalWidth) * columns)
+            )
+            const canvas = document.createElement('canvas')
+            canvas.width = columns
+            canvas.height = rows
+            const context = canvas.getContext('2d', { willReadFrequently: true })
+
+            if (!context) {
+                return
+            }
+
+            context.drawImage(image, 0, 0, columns, rows)
+            const { data } = context.getImageData(0, 0, columns, rows)
+            const sourceAspectRatio = columns / rows
+            const viewportAspectRatio = window.innerWidth / window.innerHeight
+            const mosaicWidth = isLandscape
+                ? Math.round(window.innerHeight * sourceAspectRatio)
+                : window.innerWidth
+            const mosaicHeight = isLandscape
+                ? window.innerHeight
+                : Math.round(window.innerWidth / sourceAspectRatio)
+            const cellWidth = mosaicWidth / columns
+            const cellHeight = mosaicHeight / rows
+            const tiles = []
+            for (let row = 0; row < rows; row += 1) {
+                const rowColumns = shuffleList(Array.from({ length: columns }, (_, col) => col))
+                const rowStepMs = AVATAR_MOSAIC_ROW_DROP_MS / Math.max(1, rowColumns.length)
+
+                rowColumns.forEach((col, orderIndex) => {
+                    const pixelIndex = (row * columns + col) * 4
+                    const red = data[pixelIndex]
+                    const green = data[pixelIndex + 1]
+                    const blue = data[pixelIndex + 2]
+                    const alpha = data[pixelIndex + 3] / 255
+
+                    tiles.push({
+                        id: `${result.id}-${row}-${col}`,
+                        row,
+                        col,
+                        color: `rgba(${red}, ${green}, ${blue}, ${Math.max(0.3, alpha)})`,
+                        delay: Math.round(row * AVATAR_MOSAIC_ROW_DROP_MS + orderIndex * rowStepMs),
+                        driftX: `${(col % 2 === 0 ? -1 : 1) * (18 + (row % 3) * 8)}px`,
+                        driftY: `${-mosaicHeight - 80 - row * 10}px`
+                    })
+                })
+            }
+
+            setAvatarMosaic({
+                personKey: result.id || result.label,
+                label: result.label,
+                avatarSrc: result.avatarSrc,
+                avatarFallbackSrc: result.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC,
+                width: mosaicWidth,
+                height: mosaicHeight,
+                cellWidth,
+                cellHeight,
+                columns,
+                rows,
+                tiles
+            })
+        } catch {
+            setAvatarMosaic(null)
+        }
     }
 
     const handleDroppedBallShot = (ballId) => {
@@ -649,6 +773,13 @@ function App() {
             return
         }
 
+        if (isAvatarMosaicEnabled) {
+            if (avatarMosaic?.personKey !== personKey) {
+                buildAvatarMosaic(result)
+            }
+            return
+        }
+
         if (dropOverflowIntervalsRef.current.has(personKey)) {
             return
         }
@@ -677,6 +808,10 @@ function App() {
     }
 
     const ensureOverflowController = () => {
+        if (isAvatarMosaicEnabled) {
+            return
+        }
+
         if (overflowControllerRef.current) {
             return
         }
@@ -932,6 +1067,34 @@ function App() {
                     </button>
                 ))}
             </div>
+            {avatarMosaic && isAvatarMosaicEnabled ? (
+                <div className='avatar-mosaic-overlay' aria-hidden='true'>
+                    <div
+                        className='avatar-mosaic-board'
+                        style={{
+                            width: `${avatarMosaic.width}px`,
+                            height: `${avatarMosaic.height}px`,
+                        }}>
+                        {avatarMosaic.tiles.map((tile) => (
+                            <div
+                                key={tile.id}
+                                className='avatar-mosaic-tile'
+                                style={{
+                                    left: `${tile.col * avatarMosaic.cellWidth}px`,
+                                    top: `${tile.row * avatarMosaic.cellHeight}px`,
+                                    width: `${avatarMosaic.cellWidth}px`,
+                                    height: `${avatarMosaic.cellHeight}px`,
+                                    '--avatar-mosaic-delay': `${tile.delay}ms`,
+                                    '--avatar-mosaic-drift-x': tile.driftX,
+                                    '--avatar-mosaic-drift-y': tile.driftY,
+                                    '--avatar-mosaic-tint': tile.color,
+                                    '--avatar-mosaic-image': `url(${avatarMosaic.avatarSrc})`
+                                }}
+                            />
+                        ))}
+                    </div>
+                </div>
+            ) : null}
             {activeShot && isGunshotCleanupEnabled ? (
                 <div className='shot-overlay' aria-hidden='true'>
                     <img

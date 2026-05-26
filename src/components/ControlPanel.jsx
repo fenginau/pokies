@@ -94,6 +94,7 @@ function ControlPanel({
                     disabled={isDrawing}>
                     <option value='none'>None</option>
                     <option value='gunshotCleanup'>Gunshot Cleanup</option>
+                    <option value='avatarMosaicBuild'>Avatar Mosaic Build</option>
                 </select>
             </label>
 
