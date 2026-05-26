@@ -11,6 +11,7 @@ const DROPPED_BALL_FLOOR_HEIGHT = 48
 const DROP_SETTLE_SPEED = 0.14
 const DROP_SETTLE_ANGULAR_SPEED = 0.02
 const DROP_SETTLE_FRAMES = 18
+const DROP_REPLACEMENT_TIMEOUT_MS = 5000
 
 const PRESETS = {
     iceCream: [
@@ -156,6 +157,7 @@ function App() {
     const droppedBodiesRef = useRef(new Map())
     const droppedNodesRef = useRef(new Map())
     const droppedBallMetaRef = useRef(new Map())
+    const dropRevealTimeoutsRef = useRef(new Map())
     const physicsRef = useRef(null)
     const animationFrameRef = useRef(0)
     const droppedBallIdRef = useRef(0)
@@ -254,20 +256,7 @@ function App() {
                         meta.stillFrames += 1
                         if (meta.stillFrames >= DROP_SETTLE_FRAMES) {
                             meta.hasSettled = true
-                            setDroppedResultReplacements((current) => {
-                                const next = current[meta.resultKey]
-                                if (!next || next.isVisible) {
-                                    return current
-                                }
-
-                                return {
-                                    ...current,
-                                    [meta.resultKey]: {
-                                        ...next,
-                                        isVisible: true
-                                    }
-                                }
-                            })
+                            revealDroppedReplacement(meta.resultKey)
                         }
                     } else {
                         meta.stillFrames = 0
@@ -391,9 +380,14 @@ function App() {
             })
         }
 
+        dropRevealTimeoutsRef.current.forEach((timeoutId) => {
+            window.clearTimeout(timeoutId)
+        })
+
         droppedBodiesRef.current.clear()
         droppedNodesRef.current.clear()
         droppedBallMetaRef.current.clear()
+        dropRevealTimeoutsRef.current.clear()
         setDroppedBalls([])
         setDroppedResultReplacements({})
     }
@@ -405,6 +399,29 @@ function App() {
         }
 
         droppedNodesRef.current.set(id, node)
+    }
+
+    const revealDroppedReplacement = (resultKey) => {
+        const timeoutId = dropRevealTimeoutsRef.current.get(resultKey)
+        if (timeoutId) {
+            window.clearTimeout(timeoutId)
+            dropRevealTimeoutsRef.current.delete(resultKey)
+        }
+
+        setDroppedResultReplacements((current) => {
+            const next = current[resultKey]
+            if (!next || next.isVisible) {
+                return current
+            }
+
+            return {
+                ...current,
+                [resultKey]: {
+                    ...next,
+                    isVisible: true
+                }
+            }
+        })
     }
 
     const handleDropResultBall = (result, resultKey) => {
@@ -454,6 +471,10 @@ function App() {
                 isVisible: false
             }
         }))
+        const revealTimeoutId = window.setTimeout(() => {
+            revealDroppedReplacement(resultKey)
+        }, DROP_REPLACEMENT_TIMEOUT_MS)
+        dropRevealTimeoutsRef.current.set(resultKey, revealTimeoutId)
     }
 
     return (
