@@ -15,6 +15,8 @@ const DROP_REPLACEMENT_TIMEOUT_MS = 5000
 const DROP_SIDE_WALL_THICKNESS = 120
 const DROP_OVERFLOW_THRESHOLD = 10
 const DROP_OVERFLOW_INTERVAL_MS = 250
+const DROP_EXPLODE_REMOVE_DELAY_MS = 400
+const DROP_OUT_OF_VIEW_STOP_RATIO = 1 / 3
 
 const PRESETS = {
     iceCream: [
@@ -463,6 +465,59 @@ function App() {
         })
     }
 
+    const getOutOfViewBallCount = () => {
+        let count = 0
+        droppedBodiesRef.current.forEach((body) => {
+            const isOutsideViewport =
+                body.position.x < -DROPPED_BALL_RADIUS ||
+                body.position.x > window.innerWidth + DROPPED_BALL_RADIUS ||
+                body.position.y < -DROPPED_BALL_RADIUS ||
+                body.position.y > window.innerHeight + DROPPED_BALL_RADIUS
+
+            if (isOutsideViewport) {
+                count += 1
+            }
+        })
+        return count
+    }
+
+    const shouldStopOverflowRain = () => {
+        const totalCount = droppedBodiesRef.current.size
+        if (!totalCount) {
+            return false
+        }
+
+        return getOutOfViewBallCount() / totalCount >= DROP_OUT_OF_VIEW_STOP_RATIO
+    }
+
+    const handleDroppedBallExplode = (ballId) => {
+        const ball = droppedBalls.find((item) => item.id === ballId)
+        const body = droppedBodiesRef.current.get(ballId)
+        if (!ball || !body || ball.isExploding) {
+            return
+        }
+
+        setDroppedBalls((current) =>
+            current.map((item) => (item.id === ballId ? { ...item, isExploding: true } : item))
+        )
+
+        Matter.Body.setStatic(body, true)
+        Matter.Body.setVelocity(body, { x: 0, y: 0 })
+        Matter.Body.setAngularVelocity(body, 0)
+
+        window.setTimeout(() => {
+            const latestBody = droppedBodiesRef.current.get(ballId)
+            if (latestBody && physicsRef.current) {
+                Matter.Composite.remove(physicsRef.current.engine.world, latestBody)
+            }
+
+            droppedBodiesRef.current.delete(ballId)
+            droppedNodesRef.current.delete(ballId)
+            droppedBallMetaRef.current.delete(ballId)
+            setDroppedBalls((current) => current.filter((item) => item.id !== ballId))
+        }, DROP_EXPLODE_REMOVE_DELAY_MS)
+    }
+
     const spawnDroppedBall = (result, resultKey, positionOverride) => {
         if (!physicsRef.current) {
             return
@@ -493,7 +548,8 @@ function App() {
                 label: result.label,
                 displayLabel: result.displayLabel || result.id,
                 avatarSrc: result.avatarSrc || null,
-                avatarFallbackSrc: result.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
+                avatarFallbackSrc: result.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC,
+                isExploding: false
             }
         ])
     }
@@ -510,6 +566,12 @@ function App() {
         }
 
         const intervalId = window.setInterval(() => {
+            if (shouldStopOverflowRain()) {
+                window.clearInterval(intervalId)
+                dropOverflowIntervalsRef.current.delete(personKey)
+                return
+            }
+
             const maxX = window.innerWidth - DROPPED_BALL_RADIUS
             const minX = DROPPED_BALL_RADIUS
             const randomX = minX + Math.random() * Math.max(1, maxX - minX)
@@ -725,10 +787,13 @@ function App() {
             ) : null}
             <div className='dropped-balls-layer' aria-hidden='true'>
                 {droppedBalls.map((ball) => (
-                    <div
+                    <button
                         key={ball.id}
                         ref={(node) => registerDroppedBallNode(ball.id, node)}
-                        className='dropped-result-ball'>
+                        type='button'
+                        className={`dropped-result-ball ${ball.isExploding ? 'is-exploding' : ''}`}
+                        onClick={() => handleDroppedBallExplode(ball.id)}
+                        aria-label={`Explode ${ball.label} dropped avatar`}>
                         {ball.avatarSrc ? (
                             <img
                                 src={ball.avatarSrc}
@@ -743,7 +808,7 @@ function App() {
                         ) : (
                             <span className='fellow-result-initials'>{ball.displayLabel}</span>
                         )}
-                    </div>
+                    </button>
                 ))}
             </div>
         </main>
