@@ -6,6 +6,7 @@ export function parseOptions(input) {
     .map((label, index) => ({
       id: `${label}-${index}`,
       label,
+      displayLabel: label,
     }));
 }
 

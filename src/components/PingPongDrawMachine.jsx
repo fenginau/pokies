@@ -99,22 +99,48 @@ function PingPongDrawMachine({
       scheduleTimeout(resolve, delay);
     });
 
-  const waitForSingleBallToReachRail = async (machine, drawToken) => {
+  const waitForBallToClaimExitLane = async (machine, drawToken) => {
+    while (drawToken === drawTokenRef.current) {
+      if (machine.state.currentCycleExitId) {
+        return machine.state.currentCycleExitId;
+      }
+
+      await wait(40);
+    }
+
+    return null;
+  };
+
+  const waitForBallToClearGate = async (machine, drawToken, targetBallId) => {
+    while (drawToken === drawTokenRef.current) {
+      const ballBody = machine.state.ballMap.get(targetBallId);
+      if (
+        ballBody &&
+        ballBody.position.y > machine.layout.openingY + machine.layout.ballRadius * 1.1
+      ) {
+        return true;
+      }
+
+      await wait(40);
+    }
+
+    return false;
+  };
+
+  const waitForSingleBallToReachRail = async (machine, drawToken, targetBallId) => {
     while (drawToken === drawTokenRef.current) {
       const newlyReached = machine.state.balls.filter(
         (ballBody) =>
-          !machine.state.drawnIds.has(ballBody.labelId) && hasReachedRail(machine.layout, ballBody),
+          !machine.state.drawnIds.has(ballBody.labelId) &&
+          ballBody.labelId === targetBallId &&
+          hasReachedRail(machine.layout, ballBody),
       );
 
       if (newlyReached.length) {
-        const ballBody = newlyReached.sort((a, b) => {
-          if (Math.abs(a.position.x - b.position.x) > 1) {
-            return a.position.x - b.position.x;
-          }
-          return a.position.y - b.position.y;
-        })[0];
+        const ballBody = newlyReached[0];
 
         machine.state.drawnIds.add(ballBody.labelId);
+        machine.state.currentCycleExitId = null;
         return ballBody.optionLabel;
       }
 
@@ -159,6 +185,7 @@ function PingPongDrawMachine({
         return;
       }
 
+      machine.state.currentCycleExitId = null;
       onStatusChange(`Opening gate for ball ${index + 1} of ${drawCount}...`);
       machine.state.gateTargetProgress = 1;
       await wait(GATE_OPEN_DELAY_MS);
@@ -166,8 +193,35 @@ function PingPongDrawMachine({
         return;
       }
 
-      onStatusChange(`Waiting for ball ${index + 1} of ${drawCount}...`);
-      const result = await waitForSingleBallToReachRail(machine, drawToken);
+      onStatusChange(`Waiting for ball ${index + 1} of ${drawCount} to enter the gate...`);
+      const exitBallId = await waitForBallToClaimExitLane(machine, drawToken);
+      if (drawToken !== drawTokenRef.current) {
+        return;
+      }
+
+      if (!exitBallId) {
+        return;
+      }
+
+      onStatusChange(`Waiting for ball ${index + 1} of ${drawCount} to clear the gate...`);
+      const hasClearedGate = await waitForBallToClearGate(machine, drawToken, exitBallId);
+      if (drawToken !== drawTokenRef.current) {
+        return;
+      }
+
+      if (!hasClearedGate) {
+        return;
+      }
+
+      onStatusChange(`Closing gate for ball ${index + 1} of ${drawCount}...`);
+      machine.state.gateTargetProgress = 0;
+      await wait(220);
+      if (drawToken !== drawTokenRef.current) {
+        return;
+      }
+
+      onStatusChange(`Waiting for ball ${index + 1} of ${drawCount} to reach the rail...`);
+      const result = await waitForSingleBallToReachRail(machine, drawToken, exitBallId);
       if (drawToken !== drawTokenRef.current) {
         return;
       }
@@ -178,13 +232,6 @@ function PingPongDrawMachine({
 
       results.push(result);
       onResultsChange([...results]);
-
-      onStatusChange(`Closing gate after ball ${index + 1} of ${drawCount}...`);
-      machine.state.gateTargetProgress = 0;
-      await wait(500);
-      if (drawToken !== drawTokenRef.current) {
-        return;
-      }
 
       if (index < drawCount - 1) {
         onStatusChange('Mixing balls...');

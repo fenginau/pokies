@@ -25,7 +25,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
     })
 
     const runner = Runner.create()
-    const layout = createLayout(width, height)
+    const layout = createLayout(width, height, options.length)
     const invisible = { fillStyle: 'transparent', strokeStyle: 'transparent', lineWidth: 0 }
 
     const chamberWalls = createCircularWalls(Bodies, layout, invisible)
@@ -85,16 +85,9 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
     const spinnerArms = createSpinnerArms(Bodies, layout, invisible)
 
     const ballMap = new Map()
+    const spawnPositions = generateRandomSpawnPositions(layout, options.length)
     const balls = options.map((option, index) => {
-        const columnCount = Math.max(3, Math.floor((layout.chamberInnerRadius * 1.45) / (layout.ballRadius * 2)))
-        const row = Math.floor(index / columnCount)
-        const col = index % columnCount
-        const rowWidth = Math.min(columnCount, options.length - row * columnCount)
-        const startX = layout.centerX - ((rowWidth - 1) * layout.ballRadius * 2.05) / 2
-        const spawnPosition = {
-            x: startX + col * layout.ballRadius * 2.05,
-            y: layout.ballStackBaseY - row * layout.ballRadius * 1.92
-        }
+        const spawnPosition = spawnPositions[index]
 
         const ball = Bodies.circle(spawnPosition.x, spawnPosition.y, layout.ballRadius, {
             restitution: 0.88,
@@ -135,6 +128,7 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
         balls,
         drawnIds: new Set(),
         exitingIds: new Set(),
+        currentCycleExitId: null,
         isMixing: false,
         mixingIntensity: 1,
         spinnerSpeed: 0.018,
@@ -179,12 +173,20 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
                 state.gateProgress > 0.92 &&
                 Math.abs(ball.position.x - layout.centerX) < layout.openingCaptureHalfWidth &&
                 ball.position.y > layout.openingCaptureTopY
+            const isInOpenGateCommitZone =
+                state.gateProgress > 0.92 &&
+                Math.abs(ball.position.x - layout.centerX) < layout.openingCommitHalfWidth &&
+                ball.position.y > layout.openingCommitY
+            const canClaimExitLane =
+                !state.currentCycleExitId && (isInOpenGateCaptureZone || isInOpenGateCommitZone)
+
+            if (canClaimExitLane) {
+                state.currentCycleExitId = ball.labelId
+            }
+
+            const isCurrentExitBall = state.currentCycleExitId === ball.labelId
             const hasCommittedToExit =
-                state.exitingIds.has(ball.labelId) ||
-                isInOpenGateCaptureZone ||
-                (state.gateProgress > 0.92 &&
-                    Math.abs(ball.position.x - layout.centerX) < layout.openingCommitHalfWidth &&
-                    ball.position.y > layout.openingCommitY)
+                state.exitingIds.has(ball.labelId) || isCurrentExitBall
 
             if (hasCommittedToExit) {
                 state.exitingIds.add(ball.labelId)
@@ -194,9 +196,10 @@ export function buildMachineScene({ Matter, canvas, width, height, options, onAf
             const canExit =
                 hasCommittedToExit ||
                 (state.gateProgress > 0.92 &&
-                ((Math.abs(ball.position.x - layout.centerX) < layout.openingLaneHalfWidth &&
+                (isCurrentExitBall &&
+                    ((Math.abs(ball.position.x - layout.centerX) < layout.openingLaneHalfWidth &&
                     ball.position.y > layout.openingLaneTopY) ||
-                    isBelowChamber))
+                    isBelowChamber)))
 
             const isInGatePocket =
                 state.gateProgress < 0.2 &&
@@ -470,11 +473,159 @@ function createSegmentBody(Bodies, x1, y1, x2, y2, thickness, renderStyle) {
     })
 }
 
-function createLayout(width, height) {
+function generateRandomSpawnPositions(layout, optionCount) {
+    const placed = []
+    const spacingFactors = [2.18, 2.05, 1.96]
+    const maxSpawnRadius = Math.max(
+        layout.ballRadius * 1.4,
+        layout.chamberInnerRadius - layout.ballRadius * 0.8
+    )
+
+    for (let spacingIndex = 0; spacingIndex < spacingFactors.length; spacingIndex += 1) {
+        const requiredSpacing = layout.ballRadius * spacingFactors[spacingIndex]
+        placed.length = 0
+
+        for (let index = 0; index < optionCount; index += 1) {
+            const point = findRandomSpawnPoint(layout, placed, maxSpawnRadius, requiredSpacing)
+            if (!point) {
+                break
+            }
+
+            placed.push(point)
+        }
+
+        if (placed.length === optionCount) {
+            return placed
+        }
+    }
+
+    return buildFallbackSpawnPositions(layout, optionCount)
+}
+
+function findRandomSpawnPoint(layout, placed, maxSpawnRadius, requiredSpacing) {
+    for (let attempt = 0; attempt < 900; attempt += 1) {
+        const angle = Math.random() * Math.PI * 2
+        const radius = Math.sqrt(Math.random()) * maxSpawnRadius
+        const point = {
+            x: layout.centerX + Math.cos(angle) * radius,
+            y: layout.centerY + Math.sin(angle) * radius
+        }
+
+        if (isSpawnPointValid(layout, point, placed, requiredSpacing)) {
+            return point
+        }
+    }
+
+    return null
+}
+
+function buildFallbackSpawnPositions(layout, optionCount) {
+    const points = []
+    const ringSpacing = layout.ballRadius * 2.1
+    let ringIndex = 0
+
+    while (points.length < optionCount && ringIndex < 18) {
+        const radius = Math.min(
+            layout.chamberInnerRadius - layout.ballRadius * 0.8,
+            layout.ballRadius * 1.25 + ringIndex * ringSpacing * 0.52
+        )
+        const circumference = Math.max(1, Math.PI * 2 * Math.max(radius, layout.ballRadius))
+        const pointsInRing = Math.max(6, Math.floor(circumference / ringSpacing))
+        const angleOffset = Math.random() * Math.PI * 2
+
+        for (let pointIndex = 0; pointIndex < pointsInRing && points.length < optionCount; pointIndex += 1) {
+            const angle = angleOffset + (Math.PI * 2 * pointIndex) / pointsInRing
+            const point = {
+                x: layout.centerX + Math.cos(angle) * radius,
+                y: layout.centerY + Math.sin(angle) * radius
+            }
+
+            if (!isSpawnPointValid(layout, point, points, layout.ballRadius * 1.92)) {
+                continue
+            }
+
+            points.push(point)
+        }
+
+        ringIndex += 1
+    }
+
+    while (points.length < optionCount) {
+        points.push({
+            x: layout.centerX,
+            y: layout.centerY
+        })
+    }
+
+    return points
+}
+
+function isSpawnPointValid(layout, point, placed, requiredSpacing) {
+    const dx = point.x - layout.centerX
+    const dy = point.y - layout.centerY
+    const distance = Math.hypot(dx, dy)
+
+    if (distance > layout.chamberInnerRadius - layout.ballRadius * 0.15) {
+        return false
+    }
+
+    if (
+        point.y > layout.openingY - layout.ballRadius * 0.55 &&
+        Math.abs(point.x - layout.centerX) < layout.openingWidth * 0.34
+    ) {
+        return false
+    }
+
+    if (isPointOverlappingSpinner(layout, point, layout.ballRadius + 4)) {
+        return false
+    }
+
+    for (let index = 0; index < placed.length; index += 1) {
+        const existing = placed[index]
+        if (Math.hypot(point.x - existing.x, point.y - existing.y) < requiredSpacing) {
+            return false
+        }
+    }
+
+    return true
+}
+
+function isPointOverlappingSpinner(layout, point, clearance) {
+    const dx = point.x - layout.centerX
+    const dy = point.y - layout.centerY
+
+    if (Math.hypot(dx, dy) < layout.spinnerHubRadius + clearance) {
+        return true
+    }
+
+    for (let index = 0; index < 4; index += 1) {
+        const angle = (Math.PI / 2) * index
+        const armTransform = getSpinnerArmTransform(layout, angle)
+        const local = rotatePoint(point.x - armTransform.x, point.y - armTransform.y, -angle)
+
+        if (
+            Math.abs(local.x) < layout.spinnerArmWidth / 2 + clearance &&
+            Math.abs(local.y) < layout.spinnerArmLength / 2 + clearance
+        ) {
+            return true
+        }
+    }
+
+    return false
+}
+
+function createLayout(width, height, optionCount) {
+    const safeOptionCount = Math.max(1, optionCount)
     const chamberRadius = Math.min(width * 0.34, height * 0.34, 185)
     const centerX = width / 2
     const centerY = chamberRadius + 60
-    const ballRadius = Math.max(17, Math.min(24, chamberRadius * 0.135))
+    const chamberLimitedBallRadius = chamberRadius * 0.135
+    const linearCountBallRadius = (chamberRadius / safeOptionCount) * 1.85
+    const packingBallRadius = chamberRadius / (Math.sqrt(safeOptionCount) * 1.85)
+    const ballRadius = Math.max(
+        10,
+        Math.min(24, chamberLimitedBallRadius, linearCountBallRadius, packingBallRadius)
+    )
     const wallThickness = Math.max(14, chamberRadius * 0.1)
     const openingCenterAngle = Math.PI / 2
     const targetGateClearWidth = ballRadius * 2 * 1.2
@@ -488,8 +639,8 @@ function createLayout(width, height) {
     const gateThickness = Math.max(10, ballRadius * 0.5)
     const openingY = (gateHinge.y + gateLatch.y) / 2
     const openingWidth = gateLength
-    const openingLaneHalfWidth = gateLength * 0.42
-    const openingLaneTopY = openingY - ballRadius * 0.2
+    const openingLaneHalfWidth = Math.max(gateLength * 0.48, ballRadius * 0.92)
+    const openingLaneTopY = openingY - ballRadius * 0.78
 
     const railMainStartX = centerX - chamberRadius * 0.82
     const railMainStartY = centerY + chamberRadius + 162
@@ -521,10 +672,10 @@ function createLayout(width, height) {
         openingClearWidth: targetGateClearWidth,
         openingLaneHalfWidth,
         openingLaneTopY,
-        openingCaptureHalfWidth: targetGateClearWidth * 0.42,
-        openingCaptureTopY: openingY - ballRadius * 0.55,
-        openingCommitHalfWidth: targetGateClearWidth * 0.28,
-        openingCommitY: openingY - ballRadius * 0.08,
+        openingCaptureHalfWidth: Math.max(targetGateClearWidth * 0.58, ballRadius * 0.98),
+        openingCaptureTopY: openingY - ballRadius * 1.05,
+        openingCommitHalfWidth: Math.max(targetGateClearWidth * 0.42, ballRadius * 0.72),
+        openingCommitY: openingY - ballRadius * 0.36,
         gatePocketHalfWidth: gateLength * 0.34,
         gatePocketTopY: openingY - ballRadius * 1.2,
         gateThickness,
@@ -545,8 +696,7 @@ function createLayout(width, height) {
         spinnerArmInset,
         spinnerArmLength,
         spinnerArmWidth: Math.max(10, chamberRadius * 0.085),
-        spinnerArmOffset,
-        ballStackBaseY: centerY + chamberInnerRadius - ballRadius * 1.1
+        spinnerArmOffset
     }
 }
 
@@ -600,6 +750,15 @@ export function getPointOnRail(layout, t, ballRadiusOffset = 0) {
             layout.railMainStartY +
             (layout.railMainEndY - layout.railMainStartY) * clamped -
             ballRadiusOffset
+    }
+}
+
+function rotatePoint(x, y, angle) {
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    return {
+        x: x * cos - y * sin,
+        y: x * sin + y * cos
     }
 }
 
