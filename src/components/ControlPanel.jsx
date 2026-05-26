@@ -13,6 +13,7 @@ function ControlPanel({
     onOptionsChange,
     onDrawCountChange,
     onRainEffectChange,
+    onControlsTitleClick,
     onReset,
 }) {
     const isCustomPreset = presetKey === 'custom'
@@ -20,7 +21,15 @@ function ControlPanel({
     return (
         <section className='panel control-panel'>
             <div className='panel-heading'>
-                <h2>Controls</h2>
+                <h2>
+                    <button
+                        type='button'
+                        className='panel-title-button'
+                        onClick={onControlsTitleClick}
+                        disabled={isDrawing}>
+                        Controls
+                    </button>
+                </h2>
                 <p>Choose a preset or switch to custom options.</p>
             </div>
 
@@ -87,7 +96,7 @@ function ControlPanel({
             </div>
 
             <label className='field'>
-                <span>Avatar Rain Effect</span>
+                <span>Jackpot Effect</span>
                 <select
                     value={rainEffect}
                     onChange={(event) => onRainEffectChange(event.target.value)}
@@ -95,6 +104,7 @@ function ControlPanel({
                     <option value='none'>None</option>
                     <option value='gunshotCleanup'>Gunshot Cleanup</option>
                     <option value='avatarMosaicBuild'>Avatar Mosaic Build</option>
+                    <option value='attackOnAvatar'>Attack on Drawn Fellow</option>
                 </select>
             </label>
 

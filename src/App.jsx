@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Matter from 'matter-js'
+import AttackOnAvatarGameModal from './components/AttackOnAvatarGameModal'
 import ControlPanel from './components/ControlPanel'
 import PingPongDrawMachine from './components/PingPongDrawMachine'
 import { clampDrawCount, createMachineOption, parseOptions } from './utils/draw'
@@ -185,6 +186,7 @@ function App() {
     const [lastToggledOnFellowId, setLastToggledOnFellowId] = useState('MM')
     const [activeShot, setActiveShot] = useState(null)
     const [avatarMosaic, setAvatarMosaic] = useState(null)
+    const [activeAttackGameTarget, setActiveAttackGameTarget] = useState(null)
     const [isAvatarMosaicComplete, setIsAvatarMosaicComplete] = useState(true)
     const droppedBodiesRef = useRef(new Map())
     const droppedNodesRef = useRef(new Map())
@@ -227,6 +229,7 @@ function App() {
     const shouldShowFellowResults = presetKey === 'initials' && fellowResults.length === results.length
     const isGunshotCleanupEnabled = rainEffect === 'gunshotCleanup'
     const isAvatarMosaicEnabled = rainEffect === 'avatarMosaicBuild'
+    const isAttackOnAvatarEnabled = rainEffect === 'attackOnAvatar'
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -480,6 +483,7 @@ function App() {
         mosaicCompleteTimeoutRef.current = 0
         setActiveShot(null)
         setAvatarMosaic(null)
+        setActiveAttackGameTarget(null)
         setIsAvatarMosaicComplete(true)
         setDroppedBalls([])
         setDroppedResultReplacements({})
@@ -856,6 +860,11 @@ function App() {
     }
 
     const handleDropResultBall = (result, resultKey) => {
+        if (isAttackOnAvatarEnabled) {
+            setActiveAttackGameTarget(result)
+            return
+        }
+
         if (!physicsRef.current) {
             return
         }
@@ -885,6 +894,12 @@ function App() {
             revealDroppedReplacement(resultKey)
         }, DROP_REPLACEMENT_TIMEOUT_MS)
         dropRevealTimeoutsRef.current.set(resultKey, revealTimeoutId)
+    }
+
+    const handleControlsTitleClick = () => {
+        if (fellowIdMap.MM) {
+            setActiveAttackGameTarget(fellowIdMap.MM)
+        }
     }
 
     const handleResultsModalBackdropDismiss = () => {
@@ -930,6 +945,7 @@ function App() {
                     onOptionsChange={handleOptionsChange}
                     onDrawCountChange={handleDrawCountChange}
                     onRainEffectChange={setRainEffect}
+                    onControlsTitleClick={handleControlsTitleClick}
                     onReset={handleReset}
                 />
             </aside>
@@ -1142,6 +1158,12 @@ function App() {
                         />
                     ) : null}
                 </div>
+            ) : null}
+            {activeAttackGameTarget ? (
+                <AttackOnAvatarGameModal
+                    target={activeAttackGameTarget}
+                    onClose={() => setActiveAttackGameTarget(null)}
+                />
             ) : null}
         </main>
     )
