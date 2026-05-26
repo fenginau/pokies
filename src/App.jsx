@@ -23,7 +23,8 @@ const DROP_OUT_OF_VIEW_STOP_RATIO = 1 / 5
 const DROP_OUT_OF_VIEW_RESUME_RATIO = 1 / 20
 const DROP_OVERFLOW_CONTROL_MS = 220
 const AVATAR_MOSAIC_BASE_COLUMNS = 32
-const AVATAR_MOSAIC_ROW_DROP_MS = 1000
+const AVATAR_MOSAIC_ROW_DROP_MS = 500
+const AVATAR_MOSAIC_TILE_ANIMATION_MS = 620
 const GUN_WIDTH = 240
 const GUN_RIGHT_OFFSET = 88
 const GUN_BOTTOM_OFFSET = 20
@@ -184,6 +185,7 @@ function App() {
     const [lastToggledOnFellowId, setLastToggledOnFellowId] = useState('MM')
     const [activeShot, setActiveShot] = useState(null)
     const [avatarMosaic, setAvatarMosaic] = useState(null)
+    const [isAvatarMosaicComplete, setIsAvatarMosaicComplete] = useState(true)
     const droppedBodiesRef = useRef(new Map())
     const droppedNodesRef = useRef(new Map())
     const droppedBallMetaRef = useRef(new Map())
@@ -195,6 +197,7 @@ function App() {
     const activeShotTimeoutRef = useRef(0)
     const activeRemoveTimeoutRef = useRef(0)
     const mosaicBuildTokenRef = useRef(0)
+    const mosaicCompleteTimeoutRef = useRef(0)
     const physicsRef = useRef(null)
     const animationFrameRef = useRef(0)
     const droppedBallIdRef = useRef(0)
@@ -354,7 +357,9 @@ function App() {
             droppedBallCountsRef.current.clear()
             overflowSourceMapRef.current.clear()
             window.clearInterval(overflowControllerRef.current)
+            window.clearTimeout(mosaicCompleteTimeoutRef.current)
             overflowControllerRef.current = 0
+            mosaicCompleteTimeoutRef.current = 0
         }
     }, [])
 
@@ -460,6 +465,7 @@ function App() {
         window.clearInterval(overflowControllerRef.current)
         window.clearTimeout(activeShotTimeoutRef.current)
         window.clearTimeout(activeRemoveTimeoutRef.current)
+        window.clearTimeout(mosaicCompleteTimeoutRef.current)
 
         droppedBodiesRef.current.clear()
         droppedNodesRef.current.clear()
@@ -471,8 +477,10 @@ function App() {
         overflowControllerRef.current = 0
         activeShotTimeoutRef.current = 0
         activeRemoveTimeoutRef.current = 0
+        mosaicCompleteTimeoutRef.current = 0
         setActiveShot(null)
         setAvatarMosaic(null)
+        setIsAvatarMosaicComplete(true)
         setDroppedBalls([])
         setDroppedResultReplacements({})
     }
@@ -587,6 +595,8 @@ function App() {
 
         const buildToken = mosaicBuildTokenRef.current + 1
         mosaicBuildTokenRef.current = buildToken
+        window.clearTimeout(mosaicCompleteTimeoutRef.current)
+        setIsAvatarMosaicComplete(false)
 
         try {
             const image = await loadImage(
@@ -653,6 +663,9 @@ function App() {
                 })
             }
 
+            const completionDelay =
+                Math.round((Math.max(0, rows - 1) * AVATAR_MOSAIC_ROW_DROP_MS) + AVATAR_MOSAIC_TILE_ANIMATION_MS)
+
             setAvatarMosaic({
                 personKey: result.id || result.label,
                 label: result.label,
@@ -666,8 +679,14 @@ function App() {
                 rows,
                 tiles
             })
+            mosaicCompleteTimeoutRef.current = window.setTimeout(() => {
+                if (mosaicBuildTokenRef.current === buildToken) {
+                    setIsAvatarMosaicComplete(true)
+                }
+            }, completionDelay)
         } catch {
             setAvatarMosaic(null)
+            setIsAvatarMosaicComplete(true)
         }
     }
 
@@ -868,6 +887,14 @@ function App() {
         dropRevealTimeoutsRef.current.set(resultKey, revealTimeoutId)
     }
 
+    const handleResultsModalBackdropDismiss = () => {
+        if (isAvatarMosaicEnabled && avatarMosaic && !isAvatarMosaicComplete) {
+            return
+        }
+
+        setIsResultsModalOpen(false)
+    }
+
     return (
         <main className='app-shell'>
             <button
@@ -935,7 +962,7 @@ function App() {
             {isResultsModalOpen ? (
                 <div
                     className='results-modal-backdrop'
-                    onClick={() => setIsResultsModalOpen(false)}>
+                    onClick={handleResultsModalBackdropDismiss}>
                     <section
                         className='results-modal panel'
                         onClick={(event) => event.stopPropagation()}>
