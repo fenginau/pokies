@@ -15,8 +15,19 @@ const DROP_REPLACEMENT_TIMEOUT_MS = 5000
 const DROP_SIDE_WALL_THICKNESS = 120
 const DROP_OVERFLOW_THRESHOLD = 10
 const DROP_OVERFLOW_INTERVAL_MS = 250
-const DROP_EXPLODE_REMOVE_DELAY_MS = 400
+const DROP_SHOT_PREP_MS = 180
+const DROP_SHOT_TRAVEL_MS = 260
+const DROP_SHOT_COOLDOWN_MS = 220
+const DROP_HIT_FADE_REMOVE_DELAY_MS = 400
 const DROP_OUT_OF_VIEW_STOP_RATIO = 1 / 5
+const DROP_OUT_OF_VIEW_RESUME_RATIO = 1 / 20
+const DROP_OVERFLOW_CONTROL_MS = 220
+const GUN_WIDTH = 240
+const GUN_RIGHT_OFFSET = 88
+const GUN_BOTTOM_OFFSET = 20
+const GUN_MUZZLE_OFFSET_X = 15
+const GUN_MUZZLE_OFFSET_Y = 53
+const GUN_BASE_AIM_DEGREES = -146
 
 const PRESETS = {
     iceCream: [
@@ -159,12 +170,17 @@ function App() {
     const [droppedBalls, setDroppedBalls] = useState([])
     const [droppedResultReplacements, setDroppedResultReplacements] = useState({})
     const [lastToggledOnFellowId, setLastToggledOnFellowId] = useState('MM')
+    const [activeShot, setActiveShot] = useState(null)
     const droppedBodiesRef = useRef(new Map())
     const droppedNodesRef = useRef(new Map())
     const droppedBallMetaRef = useRef(new Map())
     const dropRevealTimeoutsRef = useRef(new Map())
     const dropOverflowIntervalsRef = useRef(new Map())
     const droppedBallCountsRef = useRef(new Map())
+    const overflowSourceMapRef = useRef(new Map())
+    const overflowControllerRef = useRef(0)
+    const activeShotTimeoutRef = useRef(0)
+    const activeRemoveTimeoutRef = useRef(0)
     const physicsRef = useRef(null)
     const animationFrameRef = useRef(0)
     const droppedBallIdRef = useRef(0)
@@ -320,6 +336,9 @@ function App() {
             dropRevealTimeoutsRef.current.clear()
             dropOverflowIntervalsRef.current.clear()
             droppedBallCountsRef.current.clear()
+            overflowSourceMapRef.current.clear()
+            window.clearInterval(overflowControllerRef.current)
+            overflowControllerRef.current = 0
         }
     }, [])
 
@@ -422,6 +441,9 @@ function App() {
         dropOverflowIntervalsRef.current.forEach((intervalId) => {
             window.clearInterval(intervalId)
         })
+        window.clearInterval(overflowControllerRef.current)
+        window.clearTimeout(activeShotTimeoutRef.current)
+        window.clearTimeout(activeRemoveTimeoutRef.current)
 
         droppedBodiesRef.current.clear()
         droppedNodesRef.current.clear()
@@ -429,6 +451,11 @@ function App() {
         dropRevealTimeoutsRef.current.clear()
         dropOverflowIntervalsRef.current.clear()
         droppedBallCountsRef.current.clear()
+        overflowSourceMapRef.current.clear()
+        overflowControllerRef.current = 0
+        activeShotTimeoutRef.current = 0
+        activeRemoveTimeoutRef.current = 0
+        setActiveShot(null)
         setDroppedBalls([])
         setDroppedResultReplacements({})
     }
@@ -490,32 +517,90 @@ function App() {
         return getOutOfViewBallCount() / totalCount >= DROP_OUT_OF_VIEW_STOP_RATIO
     }
 
-    const handleDroppedBallExplode = (ballId) => {
+    const shouldResumeOverflowRain = () => {
+        const totalCount = droppedBodiesRef.current.size
+        if (!totalCount) {
+            return true
+        }
+
+        return getOutOfViewBallCount() / totalCount <= DROP_OUT_OF_VIEW_RESUME_RATIO
+    }
+
+    const stopAllOverflowRain = () => {
+        dropOverflowIntervalsRef.current.forEach((intervalId) => {
+            window.clearInterval(intervalId)
+        })
+        dropOverflowIntervalsRef.current.clear()
+    }
+
+    const removeDroppedBall = (ballId) => {
+        const latestBody = droppedBodiesRef.current.get(ballId)
+        if (latestBody && physicsRef.current) {
+            Matter.Composite.remove(physicsRef.current.engine.world, latestBody)
+        }
+
+        droppedBodiesRef.current.delete(ballId)
+        droppedNodesRef.current.delete(ballId)
+        droppedBallMetaRef.current.delete(ballId)
+        setDroppedBalls((current) => current.filter((item) => item.id !== ballId))
+    }
+
+    const handleDroppedBallShot = (ballId) => {
         const ball = droppedBalls.find((item) => item.id === ballId)
         const body = droppedBodiesRef.current.get(ballId)
-        if (!ball || !body || ball.isExploding) {
+        const node = droppedNodesRef.current.get(ballId)
+        if (!ball || !body || !node || ball.isExploding) {
             return
         }
 
-        setDroppedBalls((current) =>
-            current.map((item) => (item.id === ballId ? { ...item, isExploding: true } : item))
-        )
+        const bounds = node.getBoundingClientRect()
+        const targetX = bounds.left + bounds.width / 2
+        const targetY = bounds.top + bounds.height / 2
+        const startX = window.innerWidth - GUN_RIGHT_OFFSET - GUN_WIDTH + GUN_MUZZLE_OFFSET_X
+        const startY = window.innerHeight - GUN_BOTTOM_OFFSET - GUN_MUZZLE_OFFSET_Y
+        const aimAngle =
+            (Math.atan2(targetY - startY, targetX - startX) * 180) / Math.PI -
+            GUN_BASE_AIM_DEGREES
+
+        setActiveShot({
+            ballId,
+            startX,
+            startY,
+            endX: targetX,
+            endY: targetY,
+            aimAngle,
+            isBulletVisible: false
+        })
 
         Matter.Body.setStatic(body, true)
         Matter.Body.setVelocity(body, { x: 0, y: 0 })
         Matter.Body.setAngularVelocity(body, 0)
 
-        window.setTimeout(() => {
-            const latestBody = droppedBodiesRef.current.get(ballId)
-            if (latestBody && physicsRef.current) {
-                Matter.Composite.remove(physicsRef.current.engine.world, latestBody)
-            }
+        window.clearTimeout(activeShotTimeoutRef.current)
+        window.clearTimeout(activeRemoveTimeoutRef.current)
 
-            droppedBodiesRef.current.delete(ballId)
-            droppedNodesRef.current.delete(ballId)
-            droppedBallMetaRef.current.delete(ballId)
-            setDroppedBalls((current) => current.filter((item) => item.id !== ballId))
-        }, DROP_EXPLODE_REMOVE_DELAY_MS)
+        activeShotTimeoutRef.current = window.setTimeout(() => {
+            setActiveShot((current) =>
+                current?.ballId === ballId ? { ...current, isBulletVisible: true } : current
+            )
+
+            activeRemoveTimeoutRef.current = window.setTimeout(() => {
+                setDroppedBalls((current) =>
+                    current.map((item) => (item.id === ballId ? { ...item, isExploding: true } : item))
+                )
+                setActiveShot((current) =>
+                    current?.ballId === ballId ? { ...current, isBulletVisible: false } : current
+                )
+
+                window.setTimeout(() => {
+                    setActiveShot((current) => (current?.ballId === ballId ? null : current))
+                }, DROP_SHOT_COOLDOWN_MS)
+
+                window.setTimeout(() => {
+                    removeDroppedBall(ballId)
+                }, DROP_HIT_FADE_REMOVE_DELAY_MS)
+            }, DROP_SHOT_TRAVEL_MS)
+        }, DROP_SHOT_PREP_MS)
     }
 
     const spawnDroppedBall = (result, resultKey, positionOverride) => {
@@ -557,6 +642,7 @@ function App() {
     const ensureOverflowDropper = (result) => {
         const personKey = result.id || result.label
         const currentCount = droppedBallCountsRef.current.get(personKey) || 0
+        overflowSourceMapRef.current.set(personKey, result)
         if (currentCount <= DROP_OVERFLOW_THRESHOLD) {
             return
         }
@@ -588,6 +674,31 @@ function App() {
         dropOverflowIntervalsRef.current.set(personKey, intervalId)
     }
 
+    const ensureOverflowController = () => {
+        if (overflowControllerRef.current) {
+            return
+        }
+
+        overflowControllerRef.current = window.setInterval(() => {
+            if (shouldStopOverflowRain()) {
+                stopAllOverflowRain()
+                return
+            }
+
+            if (!shouldResumeOverflowRain()) {
+                return
+            }
+
+            overflowSourceMapRef.current.forEach((result, personKey) => {
+                if ((droppedBallCountsRef.current.get(personKey) || 0) <= DROP_OVERFLOW_THRESHOLD) {
+                    return
+                }
+
+                ensureOverflowDropper(result)
+            })
+        }, DROP_OVERFLOW_CONTROL_MS)
+    }
+
     const handleDropResultBall = (result, resultKey) => {
         if (!physicsRef.current) {
             return
@@ -605,6 +716,7 @@ function App() {
         spawnDroppedBall(result, resultKey, { x: startX, y: startY })
         const personKey = result.id || result.label
         droppedBallCountsRef.current.set(personKey, (droppedBallCountsRef.current.get(personKey) || 0) + 1)
+        ensureOverflowController()
         ensureOverflowDropper(result)
         setDroppedResultReplacements((current) => ({
             ...current,
@@ -792,8 +904,8 @@ function App() {
                         ref={(node) => registerDroppedBallNode(ball.id, node)}
                         type='button'
                         className={`dropped-result-ball ${ball.isExploding ? 'is-exploding' : ''}`}
-                        onClick={() => handleDroppedBallExplode(ball.id)}
-                        aria-label={`Explode ${ball.label} dropped avatar`}>
+                        onClick={() => handleDroppedBallShot(ball.id)}
+                        aria-label={`Shoot ${ball.label} dropped avatar`}>
                         {ball.avatarSrc ? (
                             <img
                                 src={ball.avatarSrc}
@@ -811,6 +923,27 @@ function App() {
                     </button>
                 ))}
             </div>
+            {activeShot ? (
+                <div className='shot-overlay' aria-hidden='true'>
+                    <img
+                        src='/gun.png'
+                        alt=''
+                        className='shot-gun'
+                        style={{ '--gun-aim-rotate': `${activeShot.aimAngle}deg` }}
+                    />
+                    {activeShot.isBulletVisible ? (
+                        <div
+                            className='shot-bullet'
+                            style={{
+                                '--shot-start-x': `${activeShot.startX}px`,
+                                '--shot-start-y': `${activeShot.startY}px`,
+                                '--shot-end-x': `${activeShot.endX}px`,
+                                '--shot-end-y': `${activeShot.endY}px`
+                            }}
+                        />
+                    ) : null}
+                </div>
+            ) : null}
         </main>
     )
 }
