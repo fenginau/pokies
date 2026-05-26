@@ -167,6 +167,7 @@ function App() {
     const [resetToken, setResetToken] = useState(0)
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false)
+    const [rainEffect, setRainEffect] = useState('none')
     const [droppedBalls, setDroppedBalls] = useState([])
     const [droppedResultReplacements, setDroppedResultReplacements] = useState({})
     const [lastToggledOnFellowId, setLastToggledOnFellowId] = useState('MM')
@@ -208,6 +209,7 @@ function App() {
     )
     const defaultReplacementFellow = fellowIdMap.MM || PRESETS.initials.find((option) => option.id === 'MM')
     const shouldShowFellowResults = presetKey === 'initials' && fellowResults.length === results.length
+    const isGunshotCleanupEnabled = rainEffect === 'gunshotCleanup'
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -758,12 +760,14 @@ function App() {
                     selectedPresetOptions={selectedPresetOptions}
                     drawCount={drawCount}
                     maxDrawCount={optionCount}
+                    rainEffect={rainEffect}
                     validationMessage={validationMessage}
                     isDrawing={isDrawing}
                     onPresetChange={handlePresetChange}
                     onPresetOptionToggle={handlePresetOptionToggle}
                     onOptionsChange={handleOptionsChange}
                     onDrawCountChange={handleDrawCountChange}
+                    onRainEffectChange={setRainEffect}
                     onReset={handleReset}
                 />
             </aside>
@@ -904,7 +908,12 @@ function App() {
                         ref={(node) => registerDroppedBallNode(ball.id, node)}
                         type='button'
                         className={`dropped-result-ball ${ball.isExploding ? 'is-exploding' : ''}`}
-                        onClick={() => handleDroppedBallShot(ball.id)}
+                        onClick={() => {
+                            if (isGunshotCleanupEnabled) {
+                                handleDroppedBallShot(ball.id)
+                            }
+                        }}
+                        disabled={!isGunshotCleanupEnabled || ball.isExploding}
                         aria-label={`Shoot ${ball.label} dropped avatar`}>
                         {ball.avatarSrc ? (
                             <img
@@ -923,7 +932,7 @@ function App() {
                     </button>
                 ))}
             </div>
-            {activeShot ? (
+            {activeShot && isGunshotCleanupEnabled ? (
                 <div className='shot-overlay' aria-hidden='true'>
                     <img
                         src='/gun.png'

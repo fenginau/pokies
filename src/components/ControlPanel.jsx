@@ -5,12 +5,14 @@ function ControlPanel({
     selectedPresetOptions,
     drawCount,
     maxDrawCount,
+    rainEffect,
     validationMessage,
     isDrawing,
     onPresetChange,
     onPresetOptionToggle,
     onOptionsChange,
     onDrawCountChange,
+    onRainEffectChange,
     onReset,
 }) {
     const isCustomPreset = presetKey === 'custom'
@@ -83,6 +85,17 @@ function ControlPanel({
                 <span>{maxDrawCount} options loaded</span>
                 <span>Max draw: {maxDrawCount || 0}</span>
             </div>
+
+            <label className='field'>
+                <span>Avatar Rain Effect</span>
+                <select
+                    value={rainEffect}
+                    onChange={(event) => onRainEffectChange(event.target.value)}
+                    disabled={isDrawing}>
+                    <option value='none'>None</option>
+                    <option value='gunshotCleanup'>Gunshot Cleanup</option>
+                </select>
+            </label>
 
             {validationMessage ? <p className='validation-message'>{validationMessage}</p> : null}
 
