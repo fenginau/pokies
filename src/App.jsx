@@ -12,6 +12,9 @@ const DROP_SETTLE_SPEED = 0.14
 const DROP_SETTLE_ANGULAR_SPEED = 0.02
 const DROP_SETTLE_FRAMES = 18
 const DROP_REPLACEMENT_TIMEOUT_MS = 5000
+const DROP_SIDE_WALL_THICKNESS = 120
+const DROP_OVERFLOW_THRESHOLD = 10
+const DROP_OVERFLOW_INTERVAL_MS = 250
 
 const PRESETS = {
     iceCream: [
@@ -158,6 +161,8 @@ function App() {
     const droppedNodesRef = useRef(new Map())
     const droppedBallMetaRef = useRef(new Map())
     const dropRevealTimeoutsRef = useRef(new Map())
+    const dropOverflowIntervalsRef = useRef(new Map())
+    const droppedBallCountsRef = useRef(new Map())
     const physicsRef = useRef(null)
     const animationFrameRef = useRef(0)
     const droppedBallIdRef = useRef(0)
@@ -218,11 +223,29 @@ function App() {
                 isStatic: true
             }
         )
+        const leftWall = Bodies.rectangle(
+            -DROP_SIDE_WALL_THICKNESS / 2,
+            window.innerHeight / 2,
+            DROP_SIDE_WALL_THICKNESS,
+            window.innerHeight * 3,
+            {
+                isStatic: true
+            }
+        )
+        const rightWall = Bodies.rectangle(
+            window.innerWidth + DROP_SIDE_WALL_THICKNESS / 2,
+            window.innerHeight / 2,
+            DROP_SIDE_WALL_THICKNESS,
+            window.innerHeight * 3,
+            {
+                isStatic: true
+            }
+        )
 
-        Composite.add(engine.world, [floor])
+        Composite.add(engine.world, [floor, leftWall, rightWall])
         Runner.run(runner, engine)
 
-        physicsRef.current = { engine, runner, floor }
+        physicsRef.current = { engine, runner, floor, leftWall, rightWall }
 
         const syncFloor = () => {
             if (!physicsRef.current) {
@@ -232,6 +255,14 @@ function App() {
             Matter.Body.setPosition(physicsRef.current.floor, {
                 x: window.innerWidth / 2,
                 y: window.innerHeight + DROPPED_BALL_FLOOR_HEIGHT / 2
+            })
+            Matter.Body.setPosition(physicsRef.current.leftWall, {
+                x: -DROP_SIDE_WALL_THICKNESS / 2,
+                y: window.innerHeight / 2
+            })
+            Matter.Body.setPosition(physicsRef.current.rightWall, {
+                x: window.innerWidth + DROP_SIDE_WALL_THICKNESS / 2,
+                y: window.innerHeight / 2
             })
         }
 
@@ -284,6 +315,9 @@ function App() {
             droppedBodiesRef.current.clear()
             droppedNodesRef.current.clear()
             droppedBallMetaRef.current.clear()
+            dropRevealTimeoutsRef.current.clear()
+            dropOverflowIntervalsRef.current.clear()
+            droppedBallCountsRef.current.clear()
         }
     }, [])
 
@@ -383,11 +417,16 @@ function App() {
         dropRevealTimeoutsRef.current.forEach((timeoutId) => {
             window.clearTimeout(timeoutId)
         })
+        dropOverflowIntervalsRef.current.forEach((intervalId) => {
+            window.clearInterval(intervalId)
+        })
 
         droppedBodiesRef.current.clear()
         droppedNodesRef.current.clear()
         droppedBallMetaRef.current.clear()
         dropRevealTimeoutsRef.current.clear()
+        dropOverflowIntervalsRef.current.clear()
+        droppedBallCountsRef.current.clear()
         setDroppedBalls([])
         setDroppedResultReplacements({})
     }
@@ -424,22 +463,15 @@ function App() {
         })
     }
 
-    const handleDropResultBall = (result, resultKey) => {
+    const spawnDroppedBall = (result, resultKey, positionOverride) => {
         if (!physicsRef.current) {
-            return
-        }
-
-        const triggerNode = document.getElementById(resultKey)
-        const bounds = triggerNode?.getBoundingClientRect()
-
-        if (!bounds) {
             return
         }
 
         const dropId = `dropped-ball-${droppedBallIdRef.current + 1}`
         droppedBallIdRef.current += 1
-        const startX = bounds.left + bounds.width / 2
-        const startY = bounds.top + bounds.height / 2
+        const startX = positionOverride?.x ?? window.innerWidth / 2
+        const startY = positionOverride?.y ?? DROPPED_BALL_RADIUS
         const body = Matter.Bodies.circle(startX, startY, DROPPED_BALL_RADIUS, {
             restitution: 0.82,
             friction: 0.02,
@@ -464,6 +496,54 @@ function App() {
                 avatarFallbackSrc: result.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
             }
         ])
+    }
+
+    const ensureOverflowDropper = (result) => {
+        const personKey = result.id || result.label
+        const currentCount = droppedBallCountsRef.current.get(personKey) || 0
+        if (currentCount <= DROP_OVERFLOW_THRESHOLD) {
+            return
+        }
+
+        if (dropOverflowIntervalsRef.current.has(personKey)) {
+            return
+        }
+
+        const intervalId = window.setInterval(() => {
+            const maxX = window.innerWidth - DROPPED_BALL_RADIUS
+            const minX = DROPPED_BALL_RADIUS
+            const randomX = minX + Math.random() * Math.max(1, maxX - minX)
+            spawnDroppedBall(result, `overflow-${personKey}`, {
+                x: randomX,
+                y: -DROPPED_BALL_RADIUS
+            })
+            droppedBallCountsRef.current.set(
+                personKey,
+                (droppedBallCountsRef.current.get(personKey) || 0) + 1
+            )
+        }, DROP_OVERFLOW_INTERVAL_MS)
+
+        dropOverflowIntervalsRef.current.set(personKey, intervalId)
+    }
+
+    const handleDropResultBall = (result, resultKey) => {
+        if (!physicsRef.current) {
+            return
+        }
+
+        const triggerNode = document.getElementById(resultKey)
+        const bounds = triggerNode?.getBoundingClientRect()
+
+        if (!bounds) {
+            return
+        }
+
+        const startX = bounds.left + bounds.width / 2
+        const startY = bounds.top + bounds.height / 2
+        spawnDroppedBall(result, resultKey, { x: startX, y: startY })
+        const personKey = result.id || result.label
+        droppedBallCountsRef.current.set(personKey, (droppedBallCountsRef.current.get(personKey) || 0) + 1)
+        ensureOverflowDropper(result)
         setDroppedResultReplacements((current) => ({
             ...current,
             [resultKey]: {
