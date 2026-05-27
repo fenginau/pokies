@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Matter from 'matter-js'
 import AttackOnAvatarGameModal from './components/AttackOnAvatarGameModal'
 import ControlPanel from './components/ControlPanel'
+import Match3GameModal from './components/Match3GameModal'
 import PingPongDrawMachine from './components/PingPongDrawMachine'
+import { DEFAULT_FELLOW_AVATAR_SRC, GUN_ASSET_SRC } from './constants/assets'
 import { clampDrawCount, createMachineOption, parseOptions } from './utils/draw'
-
-const DEFAULT_FELLOW_AVATAR_SRC = '/avatars/unknown.png'
 const DROPPED_BALL_SIZE = 112
 const DROPPED_BALL_RADIUS = DROPPED_BALL_SIZE / 2
 const DROPPED_BALL_FLOOR_HEIGHT = 48
@@ -32,6 +32,7 @@ const GUN_BOTTOM_OFFSET = 20
 const GUN_MUZZLE_OFFSET_X = 15
 const GUN_MUZZLE_OFFSET_Y = 53
 const GUN_BASE_AIM_DEGREES = -146
+const avatarAssetPath = (avatarId) => `./avatars/${avatarId}.png`
 
 const PRESETS = {
     iceCream: [
@@ -58,77 +59,77 @@ const PRESETS = {
             id: 'AP',
             label: 'Asher Pakula',
             displayLabel: 'AP',
-            avatarSrc: '/avatars/AP.png',
+            avatarSrc: avatarAssetPath('AP'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'DZ',
             label: 'Daniel Zelenko',
             displayLabel: 'DZ',
-            avatarSrc: '/avatars/DZ.png',
+            avatarSrc: avatarAssetPath('DZ'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'GF',
             label: 'Guoxiao Feng',
             displayLabel: 'GF',
-            avatarSrc: '/avatars/GF.png',
+            avatarSrc: avatarAssetPath('GF'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'HK',
             label: 'Henry Kerr',
             displayLabel: 'HK',
-            avatarSrc: '/avatars/HK.png',
+            avatarSrc: avatarAssetPath('HK'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'JH',
             label: 'Jay Hamilton',
             displayLabel: 'JH',
-            avatarSrc: '/avatars/JH.png',
+            avatarSrc: avatarAssetPath('JH'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'JB',
             label: 'Josh Boul',
             displayLabel: 'JB',
-            avatarSrc: '/avatars/JB.png',
+            avatarSrc: avatarAssetPath('JB'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'MM',
             label: 'Mayank Mongia',
             displayLabel: 'MM',
-            avatarSrc: '/avatars/MM.png',
+            avatarSrc: avatarAssetPath('MM'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'MI',
             label: 'Moin Iqbal',
             displayLabel: 'MI',
-            avatarSrc: '/avatars/MI.png',
+            avatarSrc: avatarAssetPath('MI'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'SG',
             label: 'Shelly Giddens',
             displayLabel: 'SG',
-            avatarSrc: '/avatars/SG.png',
+            avatarSrc: avatarAssetPath('SG'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'SN',
             label: 'Steven Nocker',
             displayLabel: 'SN',
-            avatarSrc: '/avatars/SN.png',
+            avatarSrc: avatarAssetPath('SN'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         },
         {
             id: 'SW',
             label: 'Steve Whatman',
             displayLabel: 'SW',
-            avatarSrc: '/avatars/SW.png',
+            avatarSrc: avatarAssetPath('SW'),
             avatarFallbackSrc: DEFAULT_FELLOW_AVATAR_SRC
         }
     ]
@@ -187,6 +188,7 @@ function App() {
     const [activeShot, setActiveShot] = useState(null)
     const [avatarMosaic, setAvatarMosaic] = useState(null)
     const [activeAttackGameTarget, setActiveAttackGameTarget] = useState(null)
+    const [activeMatch3GameConfig, setActiveMatch3GameConfig] = useState(null)
     const [isAvatarMosaicComplete, setIsAvatarMosaicComplete] = useState(true)
     const droppedBodiesRef = useRef(new Map())
     const droppedNodesRef = useRef(new Map())
@@ -230,6 +232,7 @@ function App() {
     const isGunshotCleanupEnabled = rainEffect === 'gunshotCleanup'
     const isAvatarMosaicEnabled = rainEffect === 'avatarMosaicBuild'
     const isAttackOnAvatarEnabled = rainEffect === 'attackOnAvatar'
+    const isMatch3PuzzleEnabled = rainEffect === 'drawnFellowsMatch3'
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -434,6 +437,8 @@ function App() {
             return
         }
 
+        setActiveAttackGameTarget(null)
+        setActiveMatch3GameConfig(null)
         clearDroppedBalls()
         setResults([])
         setIsDrawing(true)
@@ -444,6 +449,8 @@ function App() {
     }
 
     const handleReset = () => {
+        setActiveAttackGameTarget(null)
+        setActiveMatch3GameConfig(null)
         clearDroppedBalls()
         setIsDrawing(false)
         setResults([])
@@ -483,7 +490,6 @@ function App() {
         mosaicCompleteTimeoutRef.current = 0
         setActiveShot(null)
         setAvatarMosaic(null)
-        setActiveAttackGameTarget(null)
         setIsAvatarMosaicComplete(true)
         setDroppedBalls([])
         setDroppedResultReplacements({})
@@ -879,6 +885,43 @@ function App() {
         const startX = bounds.left + bounds.width / 2
         const startY = bounds.top + bounds.height / 2
         spawnDroppedBall(result, resultKey, { x: startX, y: startY })
+
+        if (isMatch3PuzzleEnabled) {
+            // This effect consumes each result ball once, then launches the board with the full draw set.
+            setDroppedResultReplacements((current) => {
+                if (current[resultKey]) {
+                    return current
+                }
+
+                const next = {
+                    ...current,
+                    [resultKey]: {
+                        fellow: result,
+                        isVisible: false,
+                        noReplacement: true
+                    }
+                }
+
+                if (Object.keys(next).length >= fellowResults.length) {
+                    window.setTimeout(() => {
+                        setIsResultsModalOpen(false)
+                        setActiveMatch3GameConfig({
+                            tileTypes: fellowResults.map((fellow) => ({
+                                id: fellow.id,
+                                label: fellow.label,
+                                displayLabel: fellow.displayLabel,
+                                avatarSrc: fellow.avatarSrc,
+                                avatarFallbackSrc: fellow.avatarFallbackSrc
+                            }))
+                        })
+                    }, 420)
+                }
+
+                return next
+            })
+            return
+        }
+
         const personKey = result.id || result.label
         droppedBallCountsRef.current.set(personKey, (droppedBallCountsRef.current.get(personKey) || 0) + 1)
         ensureOverflowController()
@@ -1141,7 +1184,7 @@ function App() {
             {activeShot && isGunshotCleanupEnabled ? (
                 <div className='shot-overlay' aria-hidden='true'>
                     <img
-                        src='/gun.png'
+                        src={GUN_ASSET_SRC}
                         alt=''
                         className='shot-gun'
                         style={{ '--gun-aim-rotate': `${activeShot.aimAngle}deg` }}
@@ -1164,6 +1207,12 @@ function App() {
                     target={activeAttackGameTarget.target}
                     testMode={activeAttackGameTarget.testMode}
                     onClose={() => setActiveAttackGameTarget(null)}
+                />
+            ) : null}
+            {activeMatch3GameConfig ? (
+                <Match3GameModal
+                    tileTypes={activeMatch3GameConfig.tileTypes}
+                    onClose={() => setActiveMatch3GameConfig(null)}
                 />
             ) : null}
         </main>

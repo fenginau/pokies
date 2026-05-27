@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+    DEFAULT_FELLOW_AVATAR_SRC,
+    GUN_ASSET_SRC,
+    SONG_ASSET_SRC
+} from '../constants/assets'
 
 const MAX_HEALTH = 5
 const STAGE_CLEAR_COUNT = 15
@@ -201,7 +206,7 @@ function AttackOnAvatarGameModal({ target, onClose, testMode = false }) {
     }, [])
 
     useEffect(() => {
-        const audio = new Audio('/song.mp3')
+        const audio = new Audio(SONG_ASSET_SRC)
         audio.loop = true
         audio.volume = 0.55
         audioRef.current = audio
@@ -638,7 +643,7 @@ function AttackOnAvatarGameModal({ target, onClose, testMode = false }) {
             </button>
 
             <div className='attack-game-gun-wrap' aria-hidden='true'>
-                <img src='/gun.png' alt='' className='attack-game-gun' />
+                <img src={GUN_ASSET_SRC} alt='' className='attack-game-gun' />
             </div>
             {activeProjectile ? (
                 <div
@@ -708,7 +713,7 @@ function AttackOnAvatarGameModal({ target, onClose, testMode = false }) {
                                 onError={(event) => {
                                     event.currentTarget.onerror = null
                                     event.currentTarget.src =
-                                        target.avatarFallbackSrc || '/avatars/unknown.png'
+                                        target.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
                                 }}
                             />
                         ) : (
@@ -743,7 +748,7 @@ function AttackOnAvatarGameModal({ target, onClose, testMode = false }) {
                                       onError={(event) => {
                                           event.currentTarget.onerror = null
                                           event.currentTarget.src =
-                                              target.avatarFallbackSrc || '/avatars/unknown.png'
+                                              target.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
                                       }}
                                   />
                               ) : (
