@@ -628,7 +628,7 @@ input {
     background-size: 56px 56px;
 }
 
-.match3-board.is-locked {
+.match3-board.is-locked .match3-tile {
     pointer-events: none;
 }
 
@@ -753,6 +753,7 @@ input {
     inset: 0;
     z-index: 4;
     display: flex;
+    pointer-events: auto;
     align-items: center;
     justify-content: center;
     padding: 22px;
@@ -764,6 +765,7 @@ input {
     max-width: 420px;
     padding: 24px 22px;
     border-radius: 24px;
+    pointer-events: auto;
     text-align: center;
     background: linear-gradient(180deg, rgba(15, 38, 68, 0.96), rgba(8, 21, 39, 0.96));
     box-shadow: 0 24px 50px rgba(2, 9, 19, 0.42);

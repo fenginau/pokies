@@ -234,6 +234,7 @@ function Match3GameModal({ tileTypes, onClose }) {
     const [score, setScore] = useState(0)
     const [movesLeft, setMovesLeft] = useState(MAX_MOVES)
     const [timeLeft, setTimeLeft] = useState(ROUND_TIME_SECONDS)
+    const [roundId, setRoundId] = useState(0)
     const [selectedTileId, setSelectedTileId] = useState('')
     const [hintedTileIds, setHintedTileIds] = useState([])
     const [floatingScores, setFloatingScores] = useState([])
@@ -253,6 +254,7 @@ function Match3GameModal({ tileTypes, onClose }) {
     const timeLeftRef = useRef(ROUND_TIME_SECONDS)
     const hintTimeoutRef = useRef(0)
     const roundTimerIntervalRef = useRef(0)
+    const initializeTokenRef = useRef(0)
 
     const clearTimer = (timerId) => {
         if (!timerId) {
@@ -646,6 +648,8 @@ function Match3GameModal({ tileTypes, onClose }) {
     }
 
     const initializeBoard = async () => {
+        const initializeToken = initializeTokenRef.current + 1
+        initializeTokenRef.current = initializeToken
         setIsInteractionLocked(true)
         setSelectedTileId('')
         setHintedTileIds([])
@@ -676,6 +680,10 @@ function Match3GameModal({ tileTypes, onClose }) {
         renderBoard(board)
         await animateBoard(board, FALL_ANIMATION_MS + 120)
 
+        if (initializeToken !== initializeTokenRef.current) {
+            return
+        }
+
         const possibleMove = checkForPossibleMoves(board)
         if (!possibleMove) {
             showLostMessage('No more possible moves. You lost!')
@@ -703,7 +711,7 @@ function Match3GameModal({ tileTypes, onClose }) {
     }
 
     const restartGame = () => {
-        openGameModal()
+        setRoundId((currentRoundId) => currentRoundId + 1)
     }
 
     const boardScale = Math.max(
@@ -717,7 +725,9 @@ function Match3GameModal({ tileTypes, onClose }) {
 
     useEffect(() => {
         openGameModal()
+    }, [roundId])
 
+    useEffect(() => {
         return () => {
             clearTimer(hintTimeoutRef.current)
             clearRoundTimer()
