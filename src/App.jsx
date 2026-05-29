@@ -202,6 +202,8 @@ function App() {
     const activeRemoveTimeoutRef = useRef(0)
     const mosaicBuildTokenRef = useRef(0)
     const mosaicCompleteTimeoutRef = useRef(0)
+    const isBackgroundAnimationPausedRef = useRef(false)
+    const renderDroppedBallsRef = useRef(null)
     const physicsRef = useRef(null)
     const animationFrameRef = useRef(0)
     const droppedBallIdRef = useRef(0)
@@ -233,6 +235,7 @@ function App() {
     const isAvatarMosaicEnabled = rainEffect === 'avatarMosaicBuild'
     const isAttackOnAvatarEnabled = rainEffect === 'attackOnAvatar'
     const isMatch3PuzzleEnabled = rainEffect === 'drawnFellowsMatch3'
+    const isBackgroundAnimationPaused = Boolean(activeAttackGameTarget || activeMatch3GameConfig)
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -250,6 +253,29 @@ function App() {
     }, [drawCount, optionCount])
 
     const canStart = !isDrawing && !validationMessage && optionCount > 0
+
+    useEffect(() => {
+        isBackgroundAnimationPausedRef.current = isBackgroundAnimationPaused
+
+        if (!physicsRef.current) {
+            return
+        }
+
+        if (isBackgroundAnimationPaused) {
+            Matter.Runner.stop(physicsRef.current.runner)
+            if (animationFrameRef.current) {
+                window.cancelAnimationFrame(animationFrameRef.current)
+                animationFrameRef.current = 0
+            }
+            return
+        }
+
+        Matter.Runner.run(physicsRef.current.runner, physicsRef.current.engine)
+
+        if (!animationFrameRef.current && renderDroppedBallsRef.current) {
+            animationFrameRef.current = window.requestAnimationFrame(renderDroppedBallsRef.current)
+        }
+    }, [isBackgroundAnimationPaused])
 
     useEffect(() => {
         const { Engine, Runner, Bodies, Composite } = Matter
@@ -310,6 +336,11 @@ function App() {
         }
 
         const renderDroppedBalls = () => {
+            if (isBackgroundAnimationPausedRef.current) {
+                animationFrameRef.current = 0
+                return
+            }
+
             droppedBodiesRef.current.forEach((body, id) => {
                 const node = droppedNodesRef.current.get(id)
                 if (!node) {
@@ -345,6 +376,7 @@ function App() {
             animationFrameRef.current = window.requestAnimationFrame(renderDroppedBalls)
         }
 
+        renderDroppedBallsRef.current = renderDroppedBalls
         animationFrameRef.current = window.requestAnimationFrame(renderDroppedBalls)
         window.addEventListener('resize', syncFloor)
 
@@ -355,6 +387,7 @@ function App() {
             Matter.World.clear(engine.world, false)
             Matter.Engine.clear(engine)
             physicsRef.current = null
+            renderDroppedBallsRef.current = null
             droppedBodiesRef.current.clear()
             droppedNodesRef.current.clear()
             droppedBallMetaRef.current.clear()
@@ -1001,6 +1034,7 @@ function App() {
                         runSeed={runSeed}
                         resetToken={resetToken}
                         isDrawing={isDrawing}
+                        isPaused={isBackgroundAnimationPaused}
                         onStatusChange={setStatus}
                         onResultsChange={setResults}
                         onDrawComplete={() => {

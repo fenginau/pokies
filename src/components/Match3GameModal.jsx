@@ -7,11 +7,13 @@ const TARGET_SCORE = 5000
 const MAX_MOVES = 18
 const ROUND_TIME_SECONDS = 90
 const TILE_SIZE = 56
+const ENABLE_FLOATING_SCORES = false
 const SWAP_ANIMATION_MS = 240
 const FALL_ANIMATION_MS = 320
 const REMOVE_ANIMATION_MS = 220
 const HINT_DURATION_MS = 1500
 const MAX_RESOLVE_STEPS = 40
+const SWIPE_THRESHOLD_PX = 18
 const SHAPE_CLASSES = [
     'is-circle',
     'is-rounded-square',
@@ -255,6 +257,7 @@ function Match3GameModal({ tileTypes, onClose }) {
     const hintTimeoutRef = useRef(0)
     const roundTimerIntervalRef = useRef(0)
     const initializeTokenRef = useRef(0)
+    const swipeStateRef = useRef(null)
 
     const clearTimer = (timerId) => {
         if (!timerId) {
@@ -345,6 +348,10 @@ function Match3GameModal({ tileTypes, onClose }) {
     const checkMatches = (board) => findMatchGroupsInTypeMatrix(toTypeMatrix(board))
 
     const showFloatingScore = (group, comboMultiplier, scoreValue) => {
+        if (!ENABLE_FLOATING_SCORES) {
+            return
+        }
+
         const totalRows = group.cells.reduce((sum, cell) => sum + cell.row, 0)
         const totalCols = group.cells.reduce((sum, cell) => sum + cell.col, 0)
         const averageRow = totalRows / group.cells.length
@@ -500,6 +507,41 @@ function Match3GameModal({ tileTypes, onClose }) {
 
     const checkForPossibleMoves = (board) => findFirstPossibleMove(toTypeMatrix(board))
 
+    const getNeighborPosition = (tilePosition, direction) => {
+        const deltas = {
+            up: { row: -1, col: 0 },
+            down: { row: 1, col: 0 },
+            left: { row: 0, col: -1 },
+            right: { row: 0, col: 1 }
+        }
+        const delta = deltas[direction]
+
+        if (!delta) {
+            return null
+        }
+
+        const nextRow = tilePosition.row + delta.row
+        const nextCol = tilePosition.col + delta.col
+
+        if (nextRow < 0 || nextRow >= BOARD_ROWS || nextCol < 0 || nextCol >= BOARD_COLS) {
+            return null
+        }
+
+        return { row: nextRow, col: nextCol }
+    }
+
+    const getSwipeDirection = (deltaX, deltaY) => {
+        if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX && Math.abs(deltaY) < SWIPE_THRESHOLD_PX) {
+            return ''
+        }
+
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            return deltaX > 0 ? 'right' : 'left'
+        }
+
+        return deltaY > 0 ? 'down' : 'up'
+    }
+
     const showLostMessage = (body) => {
         clearRoundTimer()
         setMessage({
@@ -589,6 +631,24 @@ function Match3GameModal({ tileTypes, onClose }) {
         }
 
         await evaluateCompletedMove()
+    }
+
+    const handleSwipeSwap = async (tileIdValue, direction) => {
+        if (isInteractionLocked || message.type) {
+            return
+        }
+
+        const tilePosition = getTilePosition(tileIdValue)
+        if (!tilePosition) {
+            return
+        }
+
+        const neighborPosition = getNeighborPosition(tilePosition, direction)
+        if (!neighborPosition) {
+            return
+        }
+
+        await trySwap(tilePosition, neighborPosition)
     }
 
     const handleTileSelection = async (tileIdValue) => {
@@ -714,6 +774,58 @@ function Match3GameModal({ tileTypes, onClose }) {
         setRoundId((currentRoundId) => currentRoundId + 1)
     }
 
+    const beginSwipe = (tileIdValue, clientX, clientY) => {
+        swipeStateRef.current = {
+            tileId: tileIdValue,
+            startX: clientX,
+            startY: clientY,
+            hasTriggered: false
+        }
+    }
+
+    const updateSwipe = async (clientX, clientY) => {
+        const swipeState = swipeStateRef.current
+        if (!swipeState || swipeState.hasTriggered) {
+            return
+        }
+
+        const direction = getSwipeDirection(clientX - swipeState.startX, clientY - swipeState.startY)
+        if (!direction) {
+            return
+        }
+
+        swipeState.hasTriggered = true
+        await handleSwipeSwap(swipeState.tileId, direction)
+    }
+
+    const endSwipe = () => {
+        swipeStateRef.current = null
+    }
+
+    const handleTouchStart = (tileIdValue, event) => {
+        if (!event.touches || !event.touches.length) {
+            return
+        }
+
+        beginSwipe(tileIdValue, event.touches[0].clientX, event.touches[0].clientY)
+    }
+
+    const handleTouchMove = async (event) => {
+        if (!event.touches || !event.touches.length) {
+            return
+        }
+
+        await updateSwipe(event.touches[0].clientX, event.touches[0].clientY)
+    }
+
+    const handleMouseDown = (tileIdValue, event) => {
+        beginSwipe(tileIdValue, event.clientX, event.clientY)
+    }
+
+    const handleMouseMove = async (event) => {
+        await updateSwipe(event.clientX, event.clientY)
+    }
+
     const boardScale = Math.max(
         0.62,
         Math.min(
@@ -726,6 +838,25 @@ function Match3GameModal({ tileTypes, onClose }) {
     useEffect(() => {
         openGameModal()
     }, [roundId])
+
+    useEffect(() => {
+        const handleWindowMouseUp = () => {
+            endSwipe()
+        }
+        const handleWindowTouchEnd = () => {
+            endSwipe()
+        }
+
+        window.addEventListener('mouseup', handleWindowMouseUp)
+        window.addEventListener('touchend', handleWindowTouchEnd)
+        window.addEventListener('touchcancel', handleWindowTouchEnd)
+
+        return () => {
+            window.removeEventListener('mouseup', handleWindowMouseUp)
+            window.removeEventListener('touchend', handleWindowTouchEnd)
+            window.removeEventListener('touchcancel', handleWindowTouchEnd)
+        }
+    }, [])
 
     useEffect(() => {
         return () => {
@@ -812,6 +943,12 @@ function Match3GameModal({ tileTypes, onClose }) {
                                         transform: `translate(${tile.renderCol * TILE_SIZE}px, ${tile.renderRow * TILE_SIZE}px)`
                                     }}
                                     onClick={() => handleTileSelection(tile.id)}
+                                    onTouchStart={(event) => handleTouchStart(tile.id, event)}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={endSwipe}
+                                    onTouchCancel={endSwipe}
+                                    onMouseDown={(event) => handleMouseDown(tile.id, event)}
+                                    onMouseMove={handleMouseMove}
                                     disabled={isInteractionLocked}>
                                     <span className='match3-tile-shell'>
                                         <img

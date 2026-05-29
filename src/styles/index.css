@@ -638,6 +638,9 @@ input {
     left: 0;
     padding: 0;
     border: none;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
     background: transparent;
     transition:
         transform 240ms ease,

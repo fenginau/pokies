@@ -14,6 +14,7 @@ function PingPongDrawMachine({
   runSeed,
   resetToken,
   isDrawing,
+  isPaused = false,
   onStatusChange,
   onResultsChange,
   onDrawComplete,
@@ -24,6 +25,7 @@ function PingPongDrawMachine({
   const resizeObserverRef = useRef(null);
   const timeoutIdsRef = useRef([]);
   const drawTokenRef = useRef(0);
+  const isRenderPausedRef = useRef(false);
   const [machineSize, setMachineSize] = useState({ width: 720, height: 640 });
 
   useEffect(() => {
@@ -87,6 +89,28 @@ function PingPongDrawMachine({
       clearScheduledTimeouts(timeoutIdsRef);
     };
   }, [isDrawing, runSeed, drawCount, options]);
+
+  useEffect(() => {
+    const machine = machineRef.current;
+    if (!machine) {
+      return;
+    }
+
+    if (isPaused) {
+      if (!isRenderPausedRef.current) {
+        machine.Matter.Render.stop(machine.render);
+        machine.Matter.Runner.stop(machine.runner);
+        isRenderPausedRef.current = true;
+      }
+      return;
+    }
+
+    if (isRenderPausedRef.current) {
+      machine.Matter.Render.run(machine.render);
+      machine.Matter.Runner.run(machine.runner, machine.engine);
+      isRenderPausedRef.current = false;
+    }
+  }, [isPaused]);
 
   const scheduleTimeout = (callback, delay) => {
     const id = window.setTimeout(callback, delay);
