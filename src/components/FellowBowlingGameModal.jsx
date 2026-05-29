@@ -6,7 +6,6 @@ const MAX_LANES = 3
 const HEADER_HEIGHT = 108
 const LANE_GAP = 22
 const MAX_PULL_DISTANCE = 150
-const BALL_LAUNCH_POWER = 0.58
 const BALL_RESTITUTION = 0.08
 const BALL_FRICTION_AIR = 0.022
 const PIN_RESTITUTION = 0.04
@@ -14,6 +13,7 @@ const PIN_FRICTION_AIR = 0.08
 const PIN_KNOCK_DISTANCE = 18
 const PIN_KNOCK_ANGLE = 0.32
 const LANE_INSET = 12
+const BALL_MAX_TRAVEL_MARGIN = 1.06
 
 function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value))
@@ -342,12 +342,19 @@ function FellowBowlingGameModal({ fellows, onClose }) {
             }
             const pullDistance = Math.hypot(launchVector.x, launchVector.y)
             const cappedPullDistance = Math.min(pullDistance, scene.ballDiameter)
-            const launchScale = pullDistance > 0 ? (BALL_LAUNCH_POWER * cappedPullDistance) / pullDistance : 0
+            const speedRatio = clamp(cappedPullDistance / scene.ballDiameter, 0, 1)
+            const directionX = pullDistance > 0 ? launchVector.x / pullDistance : 0
+            const directionY = pullDistance > 0 ? launchVector.y / pullDistance : 0
+            const laneRightLimit = scene.layout.x + scene.layout.width - LANE_INSET - scene.ballRadius
+            const availableTravel = Math.max(0, laneRightLimit - scene.anchor.x)
+            const maxLaunchSpeed =
+                availableTravel * BALL_FRICTION_AIR * BALL_MAX_TRAVEL_MARGIN
+            const launchSpeed = maxLaunchSpeed * speedRatio
 
             Matter.Body.setStatic(scene.ball, false)
             Matter.Body.setVelocity(scene.ball, {
-                x: launchVector.x * launchScale,
-                y: launchVector.y * launchScale
+                x: directionX * launchSpeed,
+                y: directionY * launchSpeed
             })
             Matter.Body.setAngularVelocity(cappedPullDistance * 0.0024)
             scene.hasLaunched = pullDistance > 8
