@@ -24,6 +24,16 @@ const SHAPE_CLASSES = [
     'is-star',
     'is-pill'
 ]
+const SHAPE_FILL_COLORS = [
+    '#ff7a59',
+    '#ffbe3b',
+    '#52d3aa',
+    '#5bb8ff',
+    '#7d8cff',
+    '#b67dff',
+    '#ff7fcf',
+    '#7be495'
+]
 
 function wait(duration) {
     return new Promise((resolve) => {
@@ -59,7 +69,8 @@ function createTileTypeMap(tileTypes) {
         displayLabel: tileType.displayLabel || tileType.id,
         avatarSrc: tileType.avatarSrc || DEFAULT_FELLOW_AVATAR_SRC,
         avatarFallbackSrc: tileType.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC,
-        shapeClass: SHAPE_CLASSES[index % SHAPE_CLASSES.length]
+        shapeClass: SHAPE_CLASSES[index % SHAPE_CLASSES.length],
+        fillColor: SHAPE_FILL_COLORS[index % SHAPE_FILL_COLORS.length]
     }))
 }
 
@@ -245,6 +256,7 @@ function Match3GameModal({ tileTypes, onClose }) {
         title: '',
         body: ''
     })
+    const [useAvatarFill, setUseAvatarFill] = useState(true)
     const [isInteractionLocked, setIsInteractionLocked] = useState(true)
 
     const boardRef = useRef([])
@@ -365,14 +377,15 @@ function Match3GameModal({ tileTypes, onClose }) {
 
         setFloatingScores((current) => current.concat(floatingScore))
         schedule(() => {
-            setFloatingScores((current) =>
-                current.filter((entry) => entry.id !== floatingScore.id)
-            )
+            setFloatingScores((current) => current.filter((entry) => entry.id !== floatingScore.id))
         }, 900)
     }
 
     const calculateScore = (groups, comboMultiplier) => {
-        return groups.reduce((total, group) => total + calculateMatchScore(group.cells.length), 0) * comboMultiplier
+        return (
+            groups.reduce((total, group) => total + calculateMatchScore(group.cells.length), 0) *
+            comboMultiplier
+        )
     }
 
     const removeMatchedTiles = async (board, groups, comboMultiplier) => {
@@ -696,10 +709,14 @@ function Match3GameModal({ tileTypes, onClose }) {
             return
         }
 
-        setHintedTileIds(possibleMove.map((cell) => {
-            const tile = boardRef.current[cell.row][cell.col]
-            return tile ? tile.id : ''
-        }).filter(Boolean))
+        setHintedTileIds(
+            possibleMove
+                .map((cell) => {
+                    const tile = boardRef.current[cell.row][cell.col]
+                    return tile ? tile.id : ''
+                })
+                .filter(Boolean)
+        )
 
         clearTimer(hintTimeoutRef.current)
         hintTimeoutRef.current = schedule(() => {
@@ -733,7 +750,12 @@ function Match3GameModal({ tileTypes, onClose }) {
         const typeMatrix = createInitialTypeMatrix(tileTypesRef.current.length)
         const board = typeMatrix.map((row, rowIndex) =>
             row.map((typeIndex, colIndex) =>
-                createTile(typeIndex, rowIndex, colIndex, rowIndex - BOARD_ROWS - 1 - randomTypeIndex(3))
+                createTile(
+                    typeIndex,
+                    rowIndex,
+                    colIndex,
+                    rowIndex - BOARD_ROWS - 1 - randomTypeIndex(3)
+                )
             )
         )
 
@@ -789,7 +811,10 @@ function Match3GameModal({ tileTypes, onClose }) {
             return
         }
 
-        const direction = getSwipeDirection(clientX - swipeState.startX, clientY - swipeState.startY)
+        const direction = getSwipeDirection(
+            clientX - swipeState.startX,
+            clientY - swipeState.startY
+        )
         if (!direction) {
             return
         }
@@ -887,16 +912,22 @@ function Match3GameModal({ tileTypes, onClose }) {
 
                 <div className='match3-shell'>
                     <header className='match3-header'>
-                        <button
-                            type='button'
-                            className='match3-hint-button'
-                            onClick={showHints}
-                            disabled={isInteractionLocked}>
-                            Hint
-                        </button>
-                        <div className='match3-title-wrap'>
-                            <h2>Drawn Fellows Match</h2>
-                            <p>Match 3 or more identical avatars. Reach {TARGET_SCORE} points before you run out of moves or time.</p>
+                        <div className='match3-controls'>
+                            <button
+                                type='button'
+                                className='match3-hint-button'
+                                onClick={showHints}
+                                disabled={isInteractionLocked}>
+                                Hint
+                            </button>
+                            <label className='match3-fill-toggle'>
+                                <input
+                                    type='checkbox'
+                                    checked={useAvatarFill}
+                                    onChange={(event) => setUseAvatarFill(event.target.checked)}
+                                />
+                                <span>Use avatar fill</span>
+                            </label>
                         </div>
                         <div className='match3-stats'>
                             <div className='match3-stat'>
@@ -918,6 +949,10 @@ function Match3GameModal({ tileTypes, onClose }) {
                         </div>
                     </header>
 
+                    <p style={{ width: '100%', textAlign: 'center' }}>
+                        Match 3 or more identical avatars. Reach {TARGET_SCORE} points before you
+                        run out of moves or time.
+                    </p>
                     <div className='match3-board-wrap'>
                         <div
                             className={`match3-board ${isInteractionLocked ? 'is-locked' : ''}`}
@@ -932,15 +967,13 @@ function Match3GameModal({ tileTypes, onClose }) {
                                     type='button'
                                     className={`match3-tile ${
                                         tile.isRemoving ? 'is-removing' : ''
-                                    } ${
-                                        selectedTileId === tile.id ? 'is-selected' : ''
-                                    } ${
+                                    } ${selectedTileId === tile.id ? 'is-selected' : ''} ${
                                         hintedTileIds.indexOf(tile.id) !== -1 ? 'is-hinted' : ''
                                     } ${tile.tileType.shapeClass}`}
                                     style={{
-                                        width: `${TILE_SIZE}px`,
-                                        height: `${TILE_SIZE}px`,
-                                        transform: `translate(${tile.renderCol * TILE_SIZE}px, ${tile.renderRow * TILE_SIZE}px)`
+                                        'width': `${TILE_SIZE}px`,
+                                        'height': `${TILE_SIZE}px`,
+                                        'transform': `translate(${tile.renderCol * TILE_SIZE}px, ${tile.renderRow * TILE_SIZE}px)`
                                     }}
                                     onClick={() => handleTileSelection(tile.id)}
                                     onTouchStart={(event) => handleTouchStart(tile.id, event)}
@@ -950,17 +983,25 @@ function Match3GameModal({ tileTypes, onClose }) {
                                     onMouseDown={(event) => handleMouseDown(tile.id, event)}
                                     onMouseMove={handleMouseMove}
                                     disabled={isInteractionLocked}>
-                                    <span className='match3-tile-shell'>
-                                        <img
-                                            src={tile.tileType.avatarSrc}
-                                            alt={tile.tileType.label}
-                                            className='match3-avatar'
-                                            onError={(event) => {
-                                                event.currentTarget.onerror = null
-                                                event.currentTarget.src =
-                                                    tile.tileType.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
-                                            }}
-                                        />
+                                    <span
+                                        className={`match3-tile-shell ${useAvatarFill ? 'has-avatar-fill' : 'has-color-fill'}`}
+                                        style={{
+                                            '--match3-fill-color': tile.tileType.fillColor,
+                                            backgroundColor: useAvatarFill ? undefined : tile.tileType.fillColor
+                                        }}>
+                                        {useAvatarFill ? (
+                                            <img
+                                                src={tile.tileType.avatarSrc}
+                                                alt={tile.tileType.label}
+                                                className='match3-avatar'
+                                                onError={(event) => {
+                                                    event.currentTarget.onerror = null
+                                                    event.currentTarget.src =
+                                                        tile.tileType.avatarFallbackSrc ||
+                                                        DEFAULT_FELLOW_AVATAR_SRC
+                                                }}
+                                            />
+                                        ) : null}
                                     </span>
                                 </button>
                             ))}
@@ -1006,17 +1047,27 @@ function Match3GameModal({ tileTypes, onClose }) {
                         <div className='match3-tile-legend'>
                             {tileTypesRef.current.map((tileType) => (
                                 <div key={tileType.id} className='match3-legend-item'>
-                                    <span className={`match3-legend-shape ${tileType.shapeClass}`}>
-                                        <img
-                                            src={tileType.avatarSrc}
-                                            alt={tileType.label}
-                                            className='match3-avatar'
-                                            onError={(event) => {
-                                                event.currentTarget.onerror = null
-                                                event.currentTarget.src =
-                                                    tileType.avatarFallbackSrc || DEFAULT_FELLOW_AVATAR_SRC
-                                            }}
-                                        />
+                                    <span
+                                        className={`match3-legend-shape ${tileType.shapeClass} ${
+                                            useAvatarFill ? 'has-avatar-fill' : 'has-color-fill'
+                                        }`}
+                                        style={{
+                                            '--match3-fill-color': tileType.fillColor,
+                                            backgroundColor: useAvatarFill ? undefined : tileType.fillColor
+                                        }}>
+                                        {useAvatarFill ? (
+                                            <img
+                                                src={tileType.avatarSrc}
+                                                alt={tileType.label}
+                                                className='match3-avatar'
+                                                onError={(event) => {
+                                                    event.currentTarget.onerror = null
+                                                    event.currentTarget.src =
+                                                        tileType.avatarFallbackSrc ||
+                                                        DEFAULT_FELLOW_AVATAR_SRC
+                                                }}
+                                            />
+                                        ) : null}
                                     </span>
                                     <span>{tileType.displayLabel}</span>
                                 </div>

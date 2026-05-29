@@ -538,6 +538,13 @@ input {
     padding-right: 56px;
 }
 
+.match3-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
 .match3-hint-button,
 .match3-primary-button,
 .match3-secondary-button {
@@ -580,6 +587,21 @@ input {
 .match3-stats {
     display: flex;
     gap: 12px;
+}
+
+.match3-fill-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(234, 242, 255, 0.88);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.match3-fill-toggle input {
+    width: 18px;
+    height: 18px;
+    accent-color: #ffbe3b;
 }
 
 .match3-stat {
@@ -660,6 +682,7 @@ input {
 
 .match3-tile-shell,
 .match3-legend-shape {
+    --match3-fill-color: #5bb8ff;
     position: relative;
     display: block;
     width: 100%;
@@ -672,6 +695,15 @@ input {
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.34),
         0 14px 20px rgba(6, 10, 20, 0.24);
+}
+
+.match3-tile-shell.has-color-fill,
+.match3-legend-shape.has-color-fill {
+    background:
+        radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.38), transparent 40%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.08)),
+        linear-gradient(145deg, var(--match3-fill-color), var(--match3-fill-color));
+    border-color: rgba(255, 255, 255, 0.68);
 }
 
 .match3-tile.is-selected .match3-tile-shell {
@@ -893,6 +925,10 @@ input {
     .match3-header {
         grid-template-columns: 1fr;
         padding-right: 56px;
+    }
+
+    .match3-controls {
+        width: fit-content;
     }
 
     .match3-stats,
