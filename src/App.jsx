@@ -236,6 +236,7 @@ function App() {
     const isAttackOnAvatarEnabled = rainEffect === 'attackOnAvatar'
     const isMatch3PuzzleEnabled = rainEffect === 'drawnFellowsMatch3'
     const isBackgroundAnimationPaused = Boolean(activeAttackGameTarget || activeMatch3GameConfig)
+    const isGameModeActive = Boolean(activeAttackGameTarget || activeMatch3GameConfig)
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -276,6 +277,54 @@ function App() {
             animationFrameRef.current = window.requestAnimationFrame(renderDroppedBallsRef.current)
         }
     }, [isBackgroundAnimationPaused])
+
+    useEffect(() => {
+        if (!isGameModeActive) {
+            return
+        }
+
+        const { body, documentElement } = document
+        const scrollY = window.scrollY
+        const previousBodyStyle = {
+            overflow: body.style.overflow,
+            position: body.style.position,
+            top: body.style.top,
+            left: body.style.left,
+            right: body.style.right,
+            width: body.style.width,
+            overscrollBehavior: body.style.overscrollBehavior,
+            touchAction: body.style.touchAction
+        }
+        const previousDocumentStyle = {
+            overflow: documentElement.style.overflow,
+            overscrollBehavior: documentElement.style.overscrollBehavior
+        }
+
+        body.style.overflow = 'hidden'
+        body.style.position = 'fixed'
+        body.style.top = `-${scrollY}px`
+        body.style.left = '0'
+        body.style.right = '0'
+        body.style.width = '100%'
+        body.style.overscrollBehavior = 'none'
+        body.style.touchAction = 'none'
+        documentElement.style.overflow = 'hidden'
+        documentElement.style.overscrollBehavior = 'none'
+
+        return () => {
+            body.style.overflow = previousBodyStyle.overflow
+            body.style.position = previousBodyStyle.position
+            body.style.top = previousBodyStyle.top
+            body.style.left = previousBodyStyle.left
+            body.style.right = previousBodyStyle.right
+            body.style.width = previousBodyStyle.width
+            body.style.overscrollBehavior = previousBodyStyle.overscrollBehavior
+            body.style.touchAction = previousBodyStyle.touchAction
+            documentElement.style.overflow = previousDocumentStyle.overflow
+            documentElement.style.overscrollBehavior = previousDocumentStyle.overscrollBehavior
+            window.scrollTo(0, scrollY)
+        }
+    }, [isGameModeActive])
 
     useEffect(() => {
         const { Engine, Runner, Bodies, Composite } = Matter

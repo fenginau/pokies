@@ -446,8 +446,13 @@ input {
 .attack-game-modal {
     position: fixed;
     inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
     z-index: 80;
     overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
     background: radial-gradient(circle at 50% 22%, rgba(160, 198, 255, 0.18), transparent 28%),
         linear-gradient(180deg, rgba(7, 16, 34, 0.92), rgba(8, 16, 28, 0.98));
 }
@@ -471,11 +476,17 @@ input {
 .match3-modal-backdrop {
     position: fixed;
     inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
     z-index: 90;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 16px;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
     background: rgba(4, 12, 22, 0.74);
     backdrop-filter: blur(4px);
 }
@@ -484,8 +495,8 @@ input {
     position: relative;
     width: 100%;
     max-width: 980px;
-    min-height: calc(100vh - 32px);
-    max-height: calc(100vh - 32px);
+    min-height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
     border-radius: 32px;
     overflow: hidden;
     color: #f7fbff;
@@ -513,7 +524,7 @@ input {
 }
 
 .match3-shell {
-    min-height: calc(100vh - 32px);
+    min-height: calc(100dvh - 32px);
     display: flex;
     flex-direction: column;
     padding: 22px 22px 18px;
