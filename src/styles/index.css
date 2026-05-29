@@ -457,6 +457,190 @@ input {
         linear-gradient(180deg, rgba(7, 16, 34, 0.92), rgba(8, 16, 28, 0.98));
 }
 
+.fellow-bowling-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 88;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(255, 205, 121, 0.14), transparent 28%),
+        radial-gradient(circle at 80% 0%, rgba(114, 191, 255, 0.16), transparent 30%),
+        linear-gradient(180deg, #08111f 0%, #0b1728 42%, #07111c 100%);
+}
+
+.fellow-bowling-shell {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+}
+
+.fellow-bowling-close,
+.fellow-bowling-reset {
+    border: none;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.fellow-bowling-close {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    z-index: 5;
+    padding: 12px 18px;
+    color: #eff7ff;
+    background: rgba(238, 246, 255, 0.12);
+    backdrop-filter: blur(10px);
+}
+
+.fellow-bowling-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    padding: 22px 28px 0;
+}
+
+.fellow-bowling-header h2 {
+    margin: 0;
+    font-size: clamp(2rem, 3vw, 3rem);
+    letter-spacing: 0.03em;
+}
+
+.fellow-bowling-kicker,
+.fellow-bowling-copy {
+    margin: 0;
+}
+
+.fellow-bowling-kicker {
+    color: #8ed4ff;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.fellow-bowling-copy {
+    margin-top: 10px;
+    max-width: 620px;
+    color: rgba(230, 241, 255, 0.84);
+}
+
+.fellow-bowling-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.fellow-bowling-reset {
+    padding: 12px 18px;
+    color: #072034;
+    background: linear-gradient(135deg, #ffd66f, #ffefb5);
+    box-shadow: 0 16px 30px rgba(255, 214, 111, 0.18);
+}
+
+.fellow-bowling-lanes {
+    position: absolute;
+    inset: 0;
+}
+
+.fellow-bowling-lane {
+    position: absolute;
+    overflow: hidden;
+    border: 3px solid rgba(110, 196, 255, 0.7);
+    border-radius: 28px;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px rgba(255, 222, 155, 0.08);
+}
+
+.fellow-bowling-lane-label {
+    position: absolute;
+    top: 14px;
+    left: 20px;
+    z-index: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(7, 17, 28, 0.36);
+    backdrop-filter: blur(8px);
+}
+
+.fellow-bowling-lane-label span,
+.fellow-bowling-lane-label small {
+    color: rgba(235, 243, 255, 0.76);
+}
+
+.fellow-bowling-lane-label strong {
+    font-size: 1rem;
+    color: #fdf7eb;
+}
+
+.fellow-bowling-drag-line {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.fellow-bowling-ball,
+.fellow-bowling-pin {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0;
+    border: none;
+    transform: translate(-9999px, -9999px);
+    will-change: transform;
+}
+
+.fellow-bowling-ball {
+    z-index: 4;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: grab;
+    background:
+        radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.32), transparent 24%),
+        linear-gradient(180deg, #eff7ff, #d0e4ff);
+    border: 4px solid rgba(246, 250, 255, 0.82);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 16px 22px rgba(2, 8, 18, 0.26);
+}
+
+.fellow-bowling-ball.is-launched {
+    cursor: default;
+}
+
+.fellow-bowling-ball-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.fellow-bowling-ball-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 0 8px;
+    color: #2b4264;
+    font-weight: 800;
+}
+
+.fellow-bowling-pin {
+    z-index: 2;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 8px 12px rgba(3, 10, 20, 0.18);
+}
+
 .attack-game-close {
     position: absolute;
     top: 18px;

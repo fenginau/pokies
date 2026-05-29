@@ -105,6 +105,7 @@ function ControlPanel({
                     <option value='gunshotCleanup'>Gunshot Cleanup</option>
                     <option value='avatarMosaicBuild'>Avatar Mosaic Build</option>
                     <option value='attackOnAvatar'>Attack on Drawn Fellow</option>
+                    <option value='fellowBowling'>Fellow Bowling</option>
                     <option value='drawnFellowsMatch3'>Drawn Fellows Match-3</option>
                 </select>
             </label>

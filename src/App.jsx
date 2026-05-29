@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Matter from 'matter-js'
 import AttackOnAvatarGameModal from './components/AttackOnAvatarGameModal'
 import ControlPanel from './components/ControlPanel'
+import FellowBowlingGameModal from './components/FellowBowlingGameModal'
 import Match3GameModal from './components/Match3GameModal'
 import PingPongDrawMachine from './components/PingPongDrawMachine'
 import { DEFAULT_FELLOW_AVATAR_SRC, GUN_ASSET_SRC } from './constants/assets'
@@ -188,6 +189,7 @@ function App() {
     const [activeShot, setActiveShot] = useState(null)
     const [avatarMosaic, setAvatarMosaic] = useState(null)
     const [activeAttackGameTarget, setActiveAttackGameTarget] = useState(null)
+    const [activeFellowBowlingConfig, setActiveFellowBowlingConfig] = useState(null)
     const [activeMatch3GameConfig, setActiveMatch3GameConfig] = useState(null)
     const [isAvatarMosaicComplete, setIsAvatarMosaicComplete] = useState(true)
     const droppedBodiesRef = useRef(new Map())
@@ -234,9 +236,14 @@ function App() {
     const isGunshotCleanupEnabled = rainEffect === 'gunshotCleanup'
     const isAvatarMosaicEnabled = rainEffect === 'avatarMosaicBuild'
     const isAttackOnAvatarEnabled = rainEffect === 'attackOnAvatar'
+    const isFellowBowlingEnabled = rainEffect === 'fellowBowling'
     const isMatch3PuzzleEnabled = rainEffect === 'drawnFellowsMatch3'
-    const isBackgroundAnimationPaused = Boolean(activeAttackGameTarget || activeMatch3GameConfig)
-    const isGameModeActive = Boolean(activeAttackGameTarget || activeMatch3GameConfig)
+    const isBackgroundAnimationPaused = Boolean(
+        activeAttackGameTarget || activeFellowBowlingConfig || activeMatch3GameConfig
+    )
+    const isGameModeActive = Boolean(
+        activeAttackGameTarget || activeFellowBowlingConfig || activeMatch3GameConfig
+    )
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
 
@@ -520,6 +527,7 @@ function App() {
         }
 
         setActiveAttackGameTarget(null)
+        setActiveFellowBowlingConfig(null)
         setActiveMatch3GameConfig(null)
         clearDroppedBalls()
         setResults([])
@@ -532,6 +540,7 @@ function App() {
 
     const handleReset = () => {
         setActiveAttackGameTarget(null)
+        setActiveFellowBowlingConfig(null)
         setActiveMatch3GameConfig(null)
         clearDroppedBalls()
         setIsDrawing(false)
@@ -1027,6 +1036,17 @@ function App() {
         }
     }
 
+    const handleStartFellowBowling = () => {
+        if (!fellowResults.length) {
+            return
+        }
+
+        setIsResultsModalOpen(false)
+        setActiveFellowBowlingConfig({
+            fellows: fellowResults.slice(0, 3)
+        })
+    }
+
     const handleResultsModalBackdropDismiss = () => {
         if (isAvatarMosaicEnabled && avatarMosaic && !isAvatarMosaicComplete) {
             return
@@ -1112,6 +1132,9 @@ function App() {
                             <div>
                                 <h2>Results</h2>
                                 <p>{status}</p>
+                                {isFellowBowlingEnabled && shouldShowFellowResults ? (
+                                    <p>Tap any drawn fellow to open the Fellow Bowling lanes.</p>
+                                ) : null}
                             </div>
                             <button
                                 type='button'
@@ -1139,9 +1162,14 @@ function App() {
                                                 className={`fellow-result-ball ${
                                                     isReplacementPending ? 'is-waiting-replacement' : ''
                                                 }`}
-                                                onClick={() =>
+                                                onClick={() => {
+                                                    if (isFellowBowlingEnabled) {
+                                                        handleStartFellowBowling()
+                                                        return
+                                                    }
+
                                                     handleDropResultBall(displayedResult, resultKey)
-                                                }
+                                                }}
                                                 disabled={isReplacementPending}
                                                 aria-label={`Drop ${displayedResult.label} ball`}>
                                                 {displayedResult.avatarSrc ? (
@@ -1290,6 +1318,12 @@ function App() {
                     target={activeAttackGameTarget.target}
                     testMode={activeAttackGameTarget.testMode}
                     onClose={() => setActiveAttackGameTarget(null)}
+                />
+            ) : null}
+            {activeFellowBowlingConfig ? (
+                <FellowBowlingGameModal
+                    fellows={activeFellowBowlingConfig.fellows}
+                    onClose={() => setActiveFellowBowlingConfig(null)}
                 />
             ) : null}
             {activeMatch3GameConfig ? (
