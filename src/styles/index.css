@@ -559,14 +559,23 @@ input {
     position: absolute;
     top: 14px;
     left: 20px;
+    right: 20px;
     z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 12px;
+    border-radius: 18px;
+    background: rgba(7, 17, 28, 0.36);
+    backdrop-filter: blur(8px);
+}
+
+.fellow-bowling-lane-meta {
     display: flex;
     align-items: baseline;
     gap: 12px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(7, 17, 28, 0.36);
-    backdrop-filter: blur(8px);
+    min-width: 0;
 }
 
 .fellow-bowling-lane-label span,
@@ -577,6 +586,74 @@ input {
 .fellow-bowling-lane-label strong {
     font-size: 1rem;
     color: #fdf7eb;
+}
+
+.fellow-bowling-scorecard {
+    flex: none;
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+}
+
+.fellow-bowling-scorecard-main,
+.fellow-bowling-scorecard-total {
+    display: grid;
+    gap: 4px;
+}
+
+.fellow-bowling-scorecard-rounds,
+.fellow-bowling-scorecard-throws {
+    display: grid;
+}
+
+.fellow-bowling-scorecard-rounds {
+    grid-template-columns: repeat(3, 34px);
+}
+
+.fellow-bowling-scorecard-throws {
+    grid-template-columns: repeat(6, 17px);
+}
+
+.fellow-bowling-scorecard-total {
+    grid-template-columns: 30px;
+}
+
+.fellow-bowling-scorecell {
+    display: grid;
+    place-items: center;
+    min-height: 18px;
+    color: #f8fbff;
+    font-weight: 700;
+    border: 1px solid rgba(186, 214, 255, 0.3);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.fellow-bowling-scorecell.is-round {
+    font-size: 0.72rem;
+}
+
+.fellow-bowling-scorecell.is-throw {
+    font-size: 0.76rem;
+}
+
+.fellow-bowling-scorecell.is-total {
+    font-size: 0.82rem;
+    min-height: 18px;
+}
+
+.fellow-bowling-callout {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    font-size: clamp(1.8rem, 4vw, 3.4rem);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #ffd468;
+    text-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    animation: fellow-bowling-callout-pop 220ms ease-out;
 }
 
 .fellow-bowling-drag-line {
@@ -639,6 +716,22 @@ input {
     border-radius: 999px;
     background: #ffffff;
     box-shadow: 0 8px 12px rgba(3, 10, 20, 0.18);
+}
+
+.fellow-bowling-pin.is-hidden {
+    opacity: 0;
+}
+
+@keyframes fellow-bowling-callout-pop {
+    from {
+        transform: scale(0.72);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .attack-game-close {
