@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Matter from 'matter-js'
+import AngryFellowGameModal from './components/AngryFellowGameModal'
 import AttackOnAvatarGameModal from './components/AttackOnAvatarGameModal'
 import ControlPanel from './components/ControlPanel'
 import FellowBowlingGameModal from './components/FellowBowlingGameModal'
@@ -177,6 +178,10 @@ function shuffleList(items) {
     return result
 }
 
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
 function App() {
     const [presetKey, setPresetKey] = useState('initials')
     const [optionsText, setOptionsText] = useState(
@@ -200,6 +205,7 @@ function App() {
     const [activeShot, setActiveShot] = useState(null)
     const [avatarMosaic, setAvatarMosaic] = useState(null)
     const [activeAttackGameTarget, setActiveAttackGameTarget] = useState(null)
+    const [activeAngryFellowConfig, setActiveAngryFellowConfig] = useState(null)
     const [activeFellowBowlingConfig, setActiveFellowBowlingConfig] = useState(null)
     const [activeMatch3GameConfig, setActiveMatch3GameConfig] = useState(null)
     const [isAvatarMosaicComplete, setIsAvatarMosaicComplete] = useState(true)
@@ -247,13 +253,20 @@ function App() {
     const isGunshotCleanupEnabled = rainEffect === 'gunshotCleanup'
     const isAvatarMosaicEnabled = rainEffect === 'avatarMosaicBuild'
     const isAttackOnAvatarEnabled = rainEffect === 'attackOnAvatar'
+    const isAngryFellowEnabled = rainEffect === 'angryFellow'
     const isFellowBowlingEnabled = rainEffect === 'fellowBowling'
     const isMatch3PuzzleEnabled = rainEffect === 'drawnFellowsMatch3'
     const isBackgroundAnimationPaused = Boolean(
-        activeAttackGameTarget || activeFellowBowlingConfig || activeMatch3GameConfig
+        activeAttackGameTarget ||
+            activeAngryFellowConfig ||
+            activeFellowBowlingConfig ||
+            activeMatch3GameConfig
     )
     const isGameModeActive = Boolean(
-        activeAttackGameTarget || activeFellowBowlingConfig || activeMatch3GameConfig
+        activeAttackGameTarget ||
+            activeAngryFellowConfig ||
+            activeFellowBowlingConfig ||
+            activeMatch3GameConfig
     )
     const optionCount = parsedOptions.length
     const safeDrawCount = clampDrawCount(drawCount, optionCount)
@@ -538,6 +551,7 @@ function App() {
         }
 
         setActiveAttackGameTarget(null)
+        setActiveAngryFellowConfig(null)
         setActiveFellowBowlingConfig(null)
         setActiveMatch3GameConfig(null)
         clearDroppedBalls()
@@ -551,6 +565,7 @@ function App() {
 
     const handleReset = () => {
         setActiveAttackGameTarget(null)
+        setActiveAngryFellowConfig(null)
         setActiveFellowBowlingConfig(null)
         setActiveMatch3GameConfig(null)
         clearDroppedBalls()
@@ -973,6 +988,17 @@ function App() {
             return
         }
 
+        if (isAngryFellowEnabled) {
+            const shotCount = randomInt(3, 5)
+            setIsResultsModalOpen(false)
+            setActiveAngryFellowConfig({
+                player: result,
+                fellows: PRESETS.initials,
+                shotCount
+            })
+            return
+        }
+
         if (!physicsRef.current) {
             return
         }
@@ -1143,6 +1169,9 @@ function App() {
                             <div>
                                 <h2>Results</h2>
                                 <p>{status}</p>
+                                {isAngryFellowEnabled && shouldShowFellowResults ? (
+                                    <p>Tap a drawn fellow to launch an Angry Fellow round with that avatar as the bird.</p>
+                                ) : null}
                                 {isFellowBowlingEnabled && shouldShowFellowResults ? (
                                     <p>Tap any drawn fellow to open the Fellow Bowling lanes.</p>
                                 ) : null}
@@ -1329,6 +1358,14 @@ function App() {
                     target={activeAttackGameTarget.target}
                     testMode={activeAttackGameTarget.testMode}
                     onClose={() => setActiveAttackGameTarget(null)}
+                />
+            ) : null}
+            {activeAngryFellowConfig ? (
+                <AngryFellowGameModal
+                    player={activeAngryFellowConfig.player}
+                    fellows={activeAngryFellowConfig.fellows}
+                    shotCount={activeAngryFellowConfig.shotCount}
+                    onClose={() => setActiveAngryFellowConfig(null)}
                 />
             ) : null}
             {activeFellowBowlingConfig ? (
