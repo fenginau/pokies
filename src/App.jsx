@@ -55,6 +55,17 @@ const PRESETS = {
         { id: 'taro', label: 'Taro' },
         { id: 'vanilla', label: 'Vanilla' }
     ],
+    melbourneCuisines: [
+        { id: 'burger', label: 'Burger' },
+        { id: 'chinese', label: 'Chinese' },
+        { id: 'indian', label: 'Indian' },
+        { id: 'italian', label: 'Italian' },
+        { id: 'japanese', label: 'Japanese' },
+        { id: 'korean', label: 'Korean' },
+        { id: 'malaysian', label: 'Malaysian' },
+        { id: 'thai', label: 'Thai' },
+        { id: 'vietnamese', label: 'Vietnamese' }
+    ],
     initials: [
         {
             id: 'AP',

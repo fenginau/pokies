@@ -14,7 +14,7 @@ function ControlPanel({
     onDrawCountChange,
     onRainEffectChange,
     onControlsTitleClick,
-    onReset,
+    onReset
 }) {
     const isCustomPreset = presetKey === 'custom'
 
@@ -40,6 +40,7 @@ function ControlPanel({
                     onChange={(event) => onPresetChange(event.target.value)}
                     disabled={isDrawing}>
                     <option value='iceCream'>Ice-Cream</option>
+                    <option value='melbourneCuisines'>Cuisines</option>
                     <option value='initials'>Fellows</option>
                     <option value='custom'>Custom</option>
                 </select>
